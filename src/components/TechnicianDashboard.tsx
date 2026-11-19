@@ -18,6 +18,7 @@ import {
   Camera,
   MessageSquare,
   Trash2,
+  Download,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusBadge from './StatusBadge';
@@ -415,6 +416,14 @@ export default function TechnicianDashboard({
                                 Certificado
                               </Link>
                             )}
+                            <a
+                              href={`/api/orders/${order.id}/download`}
+                              download={`Registro-Digital-${order.order_number}.pdf`}
+                              title="Descargar Registro Digital (PDF)"
+                              className="inline-flex items-center justify-center p-1.5 rounded-xl text-[#2563EB] bg-blue-50 border border-blue-200 hover:bg-blue-100 transition"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
                             <Link
                               href={`/tecnico/ordenes/${order.id}`}
                               className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-white bg-[#2563EB] hover:bg-blue-700 transition"

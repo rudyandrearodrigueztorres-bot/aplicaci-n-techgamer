@@ -19,6 +19,7 @@ import {
   ArrowRight,
   KeyRound,
   Trash2,
+  Download,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import SignatureCanvas from './SignatureCanvas';
@@ -299,6 +300,14 @@ export default function NewOrderForm({
               >
                 Volver al listado
               </Link>
+              <a
+                href={`/api/orders/${created.orderId}/download`}
+                download={`Registro-Digital-${created.orderNumber}.pdf`}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#10B981] hover:bg-emerald-600 shadow-sm transition"
+              >
+                <Download className="w-4 h-4" />
+                Descargar Registro PDF
+              </a>
               <Link
                 href={`/tecnico/ordenes/${created.orderId}`}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#2563EB] hover:bg-blue-700 shadow-sm transition"

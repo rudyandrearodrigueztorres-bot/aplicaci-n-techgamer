@@ -17,6 +17,7 @@ import {
   Wrench,
   Sparkles,
   FileCheck2,
+  Download,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusStepper from './StatusStepper';
@@ -230,27 +231,38 @@ export default function ClientDashboard({
               </p>
             </div>
 
-            {certAvailable ? (
-              <Link
-                href={`/certificado/${order.id}`}
-                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-white bg-[#10B981] hover:bg-emerald-600 shadow-md shadow-emerald-600/20 transition shrink-0"
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <a
+                href={`/api/orders/${order.id}/download`}
+                download={`Registro-Digital-${order.order_number}.pdf`}
+                className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl text-sm font-bold text-[#2563EB] bg-blue-50 border border-blue-200 hover:bg-blue-100 transition"
               >
-                <FileBadge2 className="w-5 h-5" />
-                Ver Certificado Digital (PDF)
-              </Link>
-            ) : (
-              <div className="inline-flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 text-xs sm:text-sm font-medium shrink-0">
-                <Lock className="w-4 h-4 text-slate-400 shrink-0" />
-                <div>
-                  <div className="font-semibold text-slate-700">
-                    Certificado Digital bloqueado
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Se activará al llegar a &quot;Listo para entrega&quot;
+                <Download className="w-4 h-4" />
+                Descargar Registro PDF
+              </a>
+
+              {certAvailable ? (
+                <Link
+                  href={`/certificado/${order.id}`}
+                  className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-white bg-[#10B981] hover:bg-emerald-600 shadow-md shadow-emerald-600/20 transition"
+                >
+                  <FileBadge2 className="w-5 h-5" />
+                  Ver Certificado Oficial
+                </Link>
+              ) : (
+                <div className="inline-flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-slate-100 border border-slate-200 text-slate-500 text-xs font-medium">
+                  <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div>
+                    <div className="font-semibold text-slate-700">
+                      Certificado bloqueado
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Disponible al llegar a &quot;Listo para entrega&quot;
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <StatusStepper currentStatus={order.status} />

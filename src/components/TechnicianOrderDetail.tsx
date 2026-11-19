@@ -25,6 +25,7 @@ import {
   ZoomIn,
   Wrench,
   Trash2,
+  Download,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusStepper from './StatusStepper';
@@ -269,6 +270,15 @@ export default function TechnicianOrderDetail({
         homeHref="/tecnico"
         rightSlot={
           <div className="flex items-center gap-2">
+            <a
+              href={`/api/orders/${order.id}/download`}
+              download={`Registro-Digital-${order.order_number}.pdf`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-[#2563EB] bg-blue-50 border border-blue-200 hover:bg-blue-100 transition"
+              title="Descargar Registro Digital en PDF"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline">Descargar PDF</span>
+            </a>
             <Link
               href={`/certificado/${order.id}`}
               className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${

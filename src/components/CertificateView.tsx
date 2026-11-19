@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   ArrowLeft,
   Printer,
+  Download,
   Cpu,
   ShieldCheck,
   CheckCircle2,
@@ -62,20 +63,28 @@ export default function CertificateView({
           Volver
         </Link>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
           {isTechnician && !officiallyIssued && (
             <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
               <AlertTriangle className="w-4 h-4 text-amber-600" />
               Vista previa de borrador (aún en {statusInfo.label})
             </span>
           )}
+          <a
+            href={`/api/orders/${order.id}/download`}
+            download={`Registro-Digital-${order.order_number}.pdf`}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#10B981] hover:bg-emerald-600 shadow-sm shadow-emerald-600/25 transition"
+          >
+            <Download className="w-4 h-4" />
+            Descargar PDF
+          </a>
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-[#2563EB] hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-white bg-[#2563EB] hover:bg-blue-700 shadow-sm shadow-blue-600/25 transition"
           >
             <Printer className="w-4 h-4" />
-            Imprimir / Guardar como PDF
+            Imprimir
           </button>
         </div>
       </div>

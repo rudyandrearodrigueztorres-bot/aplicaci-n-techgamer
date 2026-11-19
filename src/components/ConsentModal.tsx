@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Loader2,
   UserCheck,
+  Download,
 } from 'lucide-react';
 import {
   CONSENT_SECTIONS,
@@ -325,7 +326,15 @@ export default function ConsentModal({
         </div>
 
         {mode === 'view' && onClose && (
-          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end">
+          <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <a
+              href={`/api/orders/${orderId}/download`}
+              download={`Registro-Digital-${data.orderNumber}.pdf`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#2563EB] hover:bg-blue-700 transition"
+            >
+              <Download className="w-4 h-4" />
+              Descargar Registro PDF
+            </a>
             <button
               type="button"
               onClick={onClose}
