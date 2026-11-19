@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getOrderWithDetails, type DbOrder } from '@/db';
 import { getSession } from '@/lib/auth';
 import { getStatusInfo, type OrderStatus } from '@/lib/constants';
+import { seedDatabase } from '@/db/seed';
 
 const VALID_STATUSES: OrderStatus[] = [
   'EN_DIAGNOSTICO',
@@ -15,6 +16,7 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  seedDatabase(false);
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });

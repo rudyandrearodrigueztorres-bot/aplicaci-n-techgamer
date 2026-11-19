@@ -28,3 +28,4 @@ Abre [http://localhost:3000](http://localhost:3000).
 | Cliente (Listo + Certificado PDF) | `carlos.mendez` | `cliente123` |
 | Cliente (Consentimiento pendiente 1er acceso) | `laura.gomez` | `cliente123` |
 | Cliente (En diagnóstico) | `david.ruiz` | `cliente123` |
+

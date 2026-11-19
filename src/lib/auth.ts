@@ -87,7 +87,7 @@ export async function setSessionCookie(payload: Omit<SessionPayload, 'exp'>) {
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: false, // localhost HTTP
+    secure: Boolean(process.env.VERCEL),
     path: '/',
     maxAge: SESSION_DURATION_SECONDS,
   });
@@ -98,7 +98,7 @@ export async function clearSessionCookie() {
   cookieStore.set(SESSION_COOKIE_NAME, '', {
     httpOnly: true,
     sameSite: 'lax',
-    secure: false,
+    secure: Boolean(process.env.VERCEL),
     path: '/',
     maxAge: 0,
   });

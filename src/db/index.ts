@@ -71,7 +71,10 @@ export interface OrderWithDetails extends DbOrder {
   photos: DbOrderPhoto[];
 }
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const IS_VERCEL = Boolean(process.env.VERCEL);
+const DATA_DIR = IS_VERCEL
+  ? path.join('/tmp', 'techcare-data')
+  : path.join(process.cwd(), 'data');
 const DB_PATH = path.join(DATA_DIR, 'taller.db');
 
 declare global {

@@ -2,7 +2,11 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-export const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
+const IS_VERCEL = Boolean(process.env.VERCEL);
+export const PUBLIC_UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
+export const UPLOADS_DIR = IS_VERCEL
+  ? path.join('/tmp', 'techcare-uploads')
+  : PUBLIC_UPLOADS_DIR;
 
 export function ensureUploadsDir() {
   if (!fs.existsSync(UPLOADS_DIR)) {

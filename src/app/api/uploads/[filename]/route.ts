@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { UPLOADS_DIR } from '@/lib/uploads';
+import { PUBLIC_UPLOADS_DIR, UPLOADS_DIR } from '@/lib/uploads';
 
 const EXT_TO_MIME: Record<string, string> = {
   '.png': 'image/png',
@@ -18,7 +18,9 @@ export async function GET(
 ) {
   const { filename } = await context.params;
   const safeName = path.basename(filename);
-  const fullPath = path.join(UPLOADS_DIR, safeName);
+  const runtimePath = path.join(UPLOADS_DIR, safeName);
+  const publicPath = path.join(PUBLIC_UPLOADS_DIR, safeName);
+  const fullPath = fs.existsSync(runtimePath) ? runtimePath : publicPath;
 
   if (!fs.existsSync(fullPath)) {
     return NextResponse.json({ error: 'Archivo no encontrado' }, { status: 404 });

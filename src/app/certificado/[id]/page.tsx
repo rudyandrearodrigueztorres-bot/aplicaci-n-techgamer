@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { getOrderWithDetails } from '@/db';
 import { isCertificateAvailable } from '@/lib/constants';
+import { seedDatabase } from '@/db/seed';
 import CertificateView from '@/components/CertificateView';
 
 export default async function CertificatePage({
@@ -9,6 +10,7 @@ export default async function CertificatePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  seedDatabase(false);
   const session = await getSession();
   if (!session) redirect('/');
 

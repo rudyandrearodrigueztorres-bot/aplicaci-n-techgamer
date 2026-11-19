@@ -9,8 +9,10 @@ import {
 import { getSession, hashPassword } from '@/lib/auth';
 import { CONSENT_VERSION } from '@/lib/constants';
 import { saveBase64Signature, saveUploadedFile } from '@/lib/uploads';
+import { seedDatabase } from '@/db/seed';
 
 export async function GET(req: NextRequest) {
+  seedDatabase(false);
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
