@@ -4,6 +4,7 @@ import {
   generateNextOrderNumber,
   getDb,
   getOrderWithDetails,
+  runInTransaction,
   type DbOrder,
 } from '@/db';
 import { getSession, hashPassword } from '@/lib/auth';
@@ -24,15 +25,17 @@ export async function GET(req: NextRequest) {
   const status = (searchParams.get('status') || '').trim();
 
   if (session.role === 'CLIENT') {
-    const orders = db
-      .prepare(
-        `SELECT o.*, u.username AS client_username
-         FROM orders o
-         JOIN users u ON u.id = o.client_user_id
-         WHERE o.client_user_id = ?
-         ORDER BY o.received_at DESC`
-      )
-      .all(session.userId) as (DbOrder & { client_username: string })[];
+    const orders = (
+      db
+        .prepare(
+          `SELECT o.*, u.username AS client_username
+           FROM orders o
+           JOIN users u ON u.id = o.client_user_id
+           WHERE o.client_user_id = ?
+           ORDER BY o.received_at DESC`
+        )
+        .all(session.userId) as unknown as (DbOrder & { client_username: string })[]
+    ).map((o) => ({ ...o }));
 
     const detailed = orders
       .map((o) => getOrderWithDetails(o.id))
@@ -60,17 +63,19 @@ export async function GET(req: NextRequest) {
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const orders = db
-    .prepare(
-      `SELECT o.*, u.username AS client_username,
-              (SELECT COUNT(*) FROM order_logs l WHERE l.order_id = o.id) AS logs_count,
-              (SELECT COUNT(*) FROM order_photos p WHERE p.order_id = o.id) AS photos_count
-       FROM orders o
-       JOIN users u ON u.id = o.client_user_id
-       ${whereSql}
-       ORDER BY o.received_at DESC, o.id DESC`
-    )
-    .all(...params);
+  const orders = (
+    db
+      .prepare(
+        `SELECT o.*, u.username AS client_username,
+                (SELECT COUNT(*) FROM order_logs l WHERE l.order_id = o.id) AS logs_count,
+                (SELECT COUNT(*) FROM order_photos p WHERE p.order_id = o.id) AS photos_count
+         FROM orders o
+         JOIN users u ON u.id = o.client_user_id
+         ${whereSql}
+         ORDER BY o.received_at DESC, o.id DESC`
+      )
+      .all(...params) as unknown as Record<string, unknown>[]
+  ).map((row) => ({ ...row }));
 
   return NextResponse.json({ orders });
 }
@@ -192,7 +197,7 @@ export async function POST(req: NextRequest) {
     const orderSeq = orderNumber.split('-').pop() || '0000';
     const certificateCode = `CERT-TC${String(new Date().getFullYear()).slice(-2)}-${certHash}-${orderSeq}`;
 
-    const createTx = db.transaction(() => {
+    const newOrderId = runInTransaction(db, () => {
       const userRes = db
         .prepare(
           `INSERT INTO users (username, password_hash, role, full_name, email, phone, created_at)
@@ -260,7 +265,6 @@ export async function POST(req: NextRequest) {
       return orderId;
     });
 
-    const newOrderId = createTx();
     const createdOrder = getOrderWithDetails(newOrderId);
 
     return NextResponse.json(

@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
 import type { ConsentMethod, OrderStatus, PhotoCategory } from '@/lib/constants';
@@ -79,14 +79,14 @@ const DB_PATH = path.join(DATA_DIR, 'taller.db');
 
 declare global {
   // eslint-disable-next-line no-var
-  var __techcareDb: Database.Database | undefined;
+  var __techcareDb: DatabaseSync | undefined;
 }
 
-function initSchema(db: Database.Database) {
-  db.pragma('journal_mode = WAL');
-  db.pragma('foreign_keys = ON');
-
+function initSchema(db: DatabaseSync) {
   db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
+
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -161,21 +161,41 @@ function initSchema(db: Database.Database) {
   `);
 }
 
-export function getDb(): Database.Database {
+export function getDb(): DatabaseSync {
   if (!globalThis.__techcareDb) {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    const db = new Database(DB_PATH);
+    const db = new DatabaseSync(DB_PATH);
     initSchema(db);
     globalThis.__techcareDb = db;
   }
   return globalThis.__techcareDb;
 }
 
+export function runInTransaction<T>(db: DatabaseSync, fn: () => T): T {
+  db.exec('BEGIN');
+  try {
+    const result = fn();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // ignore rollback errors
+    }
+    throw error;
+  }
+}
+
+function toPlain<T>(row: T): T {
+  return { ...row };
+}
+
 export function getOrderWithDetails(orderId: number): OrderWithDetails | null {
   const db = getDb();
-  const order = db
+  const rawOrder = db
     .prepare(
       `SELECT o.*, u.username AS client_username
        FROM orders o
@@ -184,19 +204,25 @@ export function getOrderWithDetails(orderId: number): OrderWithDetails | null {
     )
     .get(orderId) as (DbOrder & { client_username: string }) | undefined;
 
-  if (!order) return null;
+  if (!rawOrder) return null;
 
-  const logs = db
-    .prepare(
-      `SELECT * FROM order_logs WHERE order_id = ? ORDER BY created_at DESC, id DESC`
-    )
-    .all(orderId) as DbOrderLog[];
+  const order = toPlain(rawOrder);
 
-  const photos = db
-    .prepare(
-      `SELECT * FROM order_photos WHERE order_id = ? ORDER BY created_at DESC, id DESC`
-    )
-    .all(orderId) as DbOrderPhoto[];
+  const logs = (
+    db
+      .prepare(
+        `SELECT * FROM order_logs WHERE order_id = ? ORDER BY created_at DESC, id DESC`
+      )
+      .all(orderId) as unknown as DbOrderLog[]
+  ).map(toPlain);
+
+  const photos = (
+    db
+      .prepare(
+        `SELECT * FROM order_photos WHERE order_id = ? ORDER BY created_at DESC, id DESC`
+      )
+      .all(orderId) as unknown as DbOrderPhoto[]
+  ).map(toPlain);
 
   const photosByLog = new Map<number, DbOrderPhoto[]>();
   for (const photo of photos) {
@@ -223,7 +249,7 @@ export function generateNextOrderNumber(): string {
   const row = db
     .prepare(`SELECT COUNT(*) as count FROM orders`)
     .get() as { count: number };
-  let seq = row.count + 1;
+  let seq = Number(row.count) + 1;
   while (true) {
     const candidate = `ORD-${year}-${String(seq).padStart(4, '0')}`;
     const exists = db
@@ -233,4 +259,3 @@ export function generateNextOrderNumber(): string {
     seq++;
   }
 }
-
