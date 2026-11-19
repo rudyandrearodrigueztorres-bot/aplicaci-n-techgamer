@@ -67,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   if (q) {
     conditions.push(
-      `(LOWER(o.order_number) LIKE ? OR LOWER(o.client_name) LIKE ? OR LOWER(o.device_brand) LIKE ? OR LOWER(o.device_model) LIKE ? OR LOWER(o.device_serial) LIKE ? OR LOWER(u.username) LIKE ?)`
+      `(LOWER(o.order_number) LIKE ? OR LOWER(o.client_name) LIKE ? OR LOWER(o.device_brand) LIKE ? OR LOWER(o.device_model) LIKE ? OR LOWER(o.device_serial) LIKE ? OR LOWER(COALESCE(u.username, '')) LIKE ?)`
     );
     const pattern = `%${q}%`;
     params.push(pattern, pattern, pattern, pattern, pattern, pattern);
@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
             (SELECT COUNT(*) FROM order_logs l WHERE l.order_id = o.id) AS logs_count,
             (SELECT COUNT(*) FROM order_photos p WHERE p.order_id = o.id) AS photos_count
      FROM orders o
-     JOIN users u ON u.id = o.client_user_id
+     LEFT JOIN users u ON u.id = o.client_user_id
      ${whereSql}
      ORDER BY o.received_at DESC, o.id DESC`,
     params

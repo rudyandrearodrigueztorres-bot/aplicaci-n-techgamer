@@ -19,6 +19,10 @@ import {
   MessageSquare,
   Trash2,
   Download,
+  Users,
+  UserX,
+  Database,
+  Shield,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusBadge from './StatusBadge';
@@ -34,10 +38,11 @@ import {
 interface OrderListItem {
   id: number;
   order_number: string;
+  client_user_id: number | null;
   client_name: string;
   client_phone: string;
   client_email: string;
-  client_username: string;
+  client_username: string | null;
   device_brand: string;
   device_model: string;
   device_serial: string;
@@ -52,16 +57,88 @@ interface OrderListItem {
   photos_count: number;
 }
 
+interface UserListItem {
+  id: number;
+  username: string;
+  role: 'TECHNICIAN' | 'CLIENT';
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  created_at: string;
+  isCurrentUser: boolean;
+  accessExpired: boolean;
+  orders: {
+    id: number;
+    order_number: string;
+    status: OrderStatus;
+    device: string;
+  }[];
+}
+
 export default function TechnicianDashboard({
   technicianName,
 }: {
   technicianName: string;
 }) {
+  const [activeTab, setActiveTab] = useState<'ORDERS' | 'USERS'>('ORDERS');
   const [orders, setOrders] = useState<OrderListItem[]>([]);
+  const [users, setUsers] = useState<UserListItem[]>([]);
+  const [storageInfo, setStorageInfo] = useState<{
+    persistentDb: boolean;
+    onVercel: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [query, setQuery] = useState('');
+  const [userQuery, setUserQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+
+  const fetchUsers = useCallback(async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch('/api/users', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        setUsers(json.users || []);
+        if (json.storage) setStorageInfo(json.storage);
+      }
+    } finally {
+      setLoadingUsers(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  const handleDeleteUser = async (user: UserListItem) => {
+    const confirmed = window.confirm(
+      `¿Seguro que deseas eliminar al usuario "@${user.username}" (${user.full_name})?\n\nEl usuario ya no podrá iniciar sesión, pero el historial de sus órdenes y certificados se mantendrá intacto.`
+    );
+    if (!confirmed) return;
+
+    setDeletingUserId(user.id);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) {
+        window.alert(json.error || 'No se pudo eliminar el usuario.');
+        return;
+      }
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.client_user_id === user.id
+            ? { ...o, client_user_id: null, client_username: null }
+            : o
+        )
+      );
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
 
   const handleDeleteOrder = async (order: OrderListItem) => {
     const confirmed = window.confirm(
@@ -76,6 +153,7 @@ export default function TechnicianDashboard({
       });
       if (res.ok) {
         setOrders((prev) => prev.filter((o) => o.id !== order.id));
+        fetchUsers();
       }
     } finally {
       setDeletingId(null);
@@ -231,6 +309,205 @@ export default function TechnicianDashboard({
           </div>
         </div>
 
+        {/* Persistent DB notice on Vercel if Postgres not connected yet */}
+        {storageInfo && storageInfo.onVercel && !storageInfo.persistentDb && (
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3 text-xs sm:text-sm text-amber-900">
+            <Database className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <div className="font-bold">
+                Base de datos temporal activa en Vercel
+              </div>
+              <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                Para que todas las órdenes, usuarios, firmas y fotos se
+                mantengan intactos tras cada actualización de la página, conecta
+                una base de datos gratuita <strong>Neon Postgres</strong> en{' '}
+                <strong>Vercel → Storage → Create Database</strong> y pulsa{' '}
+                <strong>Redeploy</strong>.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Section Tabs: Órdenes vs Usuarios */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+          <button
+            type="button"
+            onClick={() => setActiveTab('ORDERS')}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              activeTab === 'ORDERS'
+                ? 'bg-[#2563EB] text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <ClipboardList className="w-4 h-4" />
+            Órdenes del Taller
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full ${
+                activeTab === 'ORDERS'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {orders.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('USERS');
+              fetchUsers();
+            }}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              activeTab === 'USERS'
+                ? 'bg-[#2563EB] text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            Usuarios
+            <span
+              className={`text-xs px-2 py-0.5 rounded-full ${
+                activeTab === 'USERS'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {users.length}
+            </span>
+          </button>
+        </div>
+
+        {activeTab === 'USERS' ? (
+          <div className="space-y-4">
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+              <div className="relative flex-1 w-full">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={userQuery}
+                  onChange={(e) => setUserQuery(e.target.value)}
+                  placeholder="Buscar usuario por nombre, @usuario, correo o número de orden..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-[#F8FAFC] text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 outline-none transition"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={fetchUsers}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 transition shrink-0"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${loadingUsers ? 'animate-spin' : ''}`}
+                />
+                Actualizar usuarios
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-[#F8FAFC] border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                      <th className="py-3.5 px-4">Usuario</th>
+                      <th className="py-3.5 px-4">Rol</th>
+                      <th className="py-3.5 px-4">Contacto</th>
+                      <th className="py-3.5 px-4">Órdenes vinculadas</th>
+                      <th className="py-3.5 px-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {users
+                      .filter((u) => {
+                        const q = userQuery.trim().toLowerCase();
+                        if (!q) return true;
+                        return (
+                          u.full_name.toLowerCase().includes(q) ||
+                          u.username.toLowerCase().includes(q) ||
+                          (u.email || '').toLowerCase().includes(q) ||
+                          u.orders.some((o) =>
+                            o.order_number.toLowerCase().includes(q)
+                          )
+                        );
+                      })
+                      .map((u) => (
+                        <tr key={u.id} className="hover:bg-blue-50/30 transition">
+                          <td className="py-4 px-4 align-top">
+                            <div className="font-semibold text-slate-900">
+                              {u.full_name}
+                            </div>
+                            <div className="mt-1 inline-block text-xs font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                              @{u.username}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 align-top">
+                            {u.role === 'TECHNICIAN' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#2563EB] border border-blue-200">
+                                <Shield className="w-3.5 h-3.5" />
+                                Técnico Admin
+                              </span>
+                            ) : u.accessExpired ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+                                Cliente · Expirado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Cliente · Activo
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 align-top text-xs text-slate-600">
+                            <div>{u.phone || '—'}</div>
+                            <div className="text-slate-400 mt-0.5">
+                              {u.email || '—'}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 align-top">
+                            {u.orders.length === 0 ? (
+                              <span className="text-xs text-slate-400">
+                                {u.role === 'TECHNICIAN'
+                                  ? 'Acceso completo'
+                                  : 'Sin órdenes vinculadas'}
+                              </span>
+                            ) : (
+                              <div className="flex flex-wrap gap-1.5">
+                                {u.orders.map((o) => (
+                                  <Link
+                                    key={o.id}
+                                    href={`/tecnico/ordenes/${o.id}`}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-mono font-semibold bg-blue-50 text-[#2563EB] hover:bg-blue-100 transition"
+                                  >
+                                    {o.order_number}
+                                  </Link>
+                                ))}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 align-top text-right whitespace-nowrap">
+                            {u.isCurrentUser || u.role === 'TECHNICIAN' ? (
+                              <span className="text-xs text-slate-400 italic">
+                                Cuenta protegida
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(u)}
+                                disabled={deletingUserId === u.id}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition"
+                              >
+                                <UserX className="w-3.5 h-3.5" />
+                                Eliminar usuario
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Search & Status Filter */}
         <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-sm space-y-3">
           <div className="flex flex-col md:flex-row gap-3">
@@ -358,8 +635,16 @@ export default function TechnicianDashboard({
                           <div className="text-xs text-slate-500 mt-0.5">
                             {order.client_phone}
                           </div>
-                          <div className="mt-1 inline-block text-[11px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                            @{order.client_username}
+                          <div className="mt-1">
+                            {order.client_username ? (
+                              <span className="inline-block text-[11px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                                @{order.client_username}
+                              </span>
+                            ) : (
+                              <span className="inline-block text-[11px] font-medium text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                Usuario eliminado
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -450,6 +735,8 @@ export default function TechnicianDashboard({
             </div>
           )}
         </div>
+        </>
+        )}
       </main>
     </div>
   );

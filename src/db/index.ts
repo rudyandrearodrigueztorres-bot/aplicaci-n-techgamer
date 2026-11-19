@@ -24,7 +24,7 @@ export interface DbUser {
 export interface DbOrder {
   id: number;
   order_number: string;
-  client_user_id: number;
+  client_user_id: number | null;
   client_name: string;
   client_phone: string;
   client_email: string;
@@ -73,7 +73,7 @@ export interface DbOrderPhoto {
 }
 
 export interface OrderWithDetails extends DbOrder {
-  client_username: string;
+  client_username: string | null;
   logs: (DbOrderLog & { photos: DbOrderPhoto[] })[];
   photos: DbOrderPhoto[];
 }
@@ -166,7 +166,7 @@ async function initSchemaInternal(): Promise<void> {
       CREATE TABLE IF NOT EXISTS orders (
         id SERIAL PRIMARY KEY,
         order_number TEXT UNIQUE NOT NULL,
-        client_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+        client_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
         client_name TEXT NOT NULL,
         client_phone TEXT NOT NULL,
         client_email TEXT NOT NULL,
@@ -229,6 +229,26 @@ async function initSchemaInternal(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_order_logs_order_id ON order_logs(order_id);
       CREATE INDEX IF NOT EXISTS idx_order_photos_order_id ON order_photos(order_id);
     `);
+
+    // Non-destructive migration for existing Postgres tables so deleting a user preserves orders
+    await pool.query(`
+      DO $$
+      BEGIN
+        ALTER TABLE orders ALTER COLUMN client_user_id DROP NOT NULL;
+        IF EXISTS (
+          SELECT 1 FROM information_schema.table_constraints
+          WHERE table_name = 'orders' AND constraint_name = 'orders_client_user_id_fkey'
+        ) THEN
+          ALTER TABLE orders DROP CONSTRAINT orders_client_user_id_fkey;
+        END IF;
+        ALTER TABLE orders
+          ADD CONSTRAINT orders_client_user_id_fkey
+          FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE SET NULL;
+      EXCEPTION WHEN OTHERS THEN
+        -- Keep existing data untouched if already migrated
+        NULL;
+      END $$;
+    `);
     return;
   }
 
@@ -248,7 +268,7 @@ async function initSchemaInternal(): Promise<void> {
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       order_number TEXT UNIQUE NOT NULL,
-      client_user_id INTEGER NOT NULL,
+      client_user_id INTEGER,
       client_name TEXT NOT NULL,
       client_phone TEXT NOT NULL,
       client_email TEXT NOT NULL,
@@ -276,7 +296,7 @@ async function initSchemaInternal(): Promise<void> {
       certificate_code TEXT UNIQUE NOT NULL,
       expires_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE RESTRICT
+      FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE SET NULL
     );
 
     CREATE TABLE IF NOT EXISTS order_logs (
@@ -317,7 +337,7 @@ async function initSchemaInternal(): Promise<void> {
 
   const cols = db
     .prepare(`PRAGMA table_info(orders)`)
-    .all() as unknown as { name: string }[];
+    .all() as unknown as { name: string; notnull: number }[];
   if (!cols.some((c) => c.name === 'expires_at')) {
     db.exec(`ALTER TABLE orders ADD COLUMN expires_at TEXT`);
     const rows = db
@@ -328,6 +348,62 @@ async function initSchemaInternal(): Promise<void> {
       updateStmt.run(calculateExpiresAt(row.received_at), row.id);
     }
   }
+
+  // Non-destructive SQLite migration if client_user_id was previously NOT NULL
+  const clientCol = cols.find((c) => c.name === 'client_user_id');
+  if (clientCol && clientCol.notnull === 1) {
+    db.exec(`
+      PRAGMA foreign_keys = OFF;
+      BEGIN;
+      CREATE TABLE orders_migrated (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_number TEXT UNIQUE NOT NULL,
+        client_user_id INTEGER,
+        client_name TEXT NOT NULL,
+        client_phone TEXT NOT NULL,
+        client_email TEXT NOT NULL,
+        client_temp_password TEXT,
+        device_brand TEXT NOT NULL,
+        device_model TEXT NOT NULL,
+        device_serial TEXT NOT NULL,
+        reported_issue TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'EN_DIAGNOSTICO'
+          CHECK(status IN ('EN_DIAGNOSTICO', 'DIAGNOSTICADO', 'EN_REPARACION', 'LISTO_PARA_ENTREGA', 'ENTREGADO')),
+        received_at TEXT NOT NULL,
+        completed_at TEXT,
+        delivered_at TEXT,
+        initial_photo_path TEXT,
+        consent_accepted INTEGER NOT NULL DEFAULT 0,
+        consent_accepted_at TEXT,
+        consent_method TEXT CHECK(consent_method IN ('PRESENCIAL', 'PORTAL_CLIENTE') OR consent_method IS NULL),
+        consent_signature_path TEXT,
+        consent_signer_name TEXT,
+        consent_version TEXT NOT NULL DEFAULT 'v2.1-RGPD-2026',
+        final_diagnosis TEXT,
+        solution_applied TEXT,
+        warranty_granted TEXT,
+        technician_name TEXT,
+        certificate_code TEXT UNIQUE NOT NULL,
+        expires_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE SET NULL
+      );
+      INSERT INTO orders_migrated SELECT
+        id, order_number, client_user_id, client_name, client_phone, client_email, client_temp_password,
+        device_brand, device_model, device_serial, reported_issue, status,
+        received_at, completed_at, delivered_at, initial_photo_path,
+        consent_accepted, consent_accepted_at, consent_method, consent_signature_path, consent_signer_name, consent_version,
+        final_diagnosis, solution_applied, warranty_granted, technician_name, certificate_code, expires_at, updated_at
+      FROM orders;
+      DROP TABLE orders;
+      ALTER TABLE orders_migrated RENAME TO orders;
+      CREATE INDEX IF NOT EXISTS idx_orders_client_user_id ON orders(client_user_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_order_number ON orders(order_number);
+      COMMIT;
+      PRAGMA foreign_keys = ON;
+    `);
+  }
+
   db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_expires_at ON orders(expires_at);`);
 }
 
@@ -453,10 +529,10 @@ export async function deleteFileFromDb(filePath: string | null | undefined): Pro
 export async function getOrderWithDetails(
   orderId: number
 ): Promise<OrderWithDetails | null> {
-  const order = await queryOne<DbOrder & { client_username: string }>(
+  const order = await queryOne<DbOrder & { client_username: string | null }>(
     `SELECT o.*, u.username AS client_username
      FROM orders o
-     JOIN users u ON u.id = o.client_user_id
+     LEFT JOIN users u ON u.id = o.client_user_id
      WHERE o.id = ?`,
     [orderId]
   );
@@ -529,7 +605,7 @@ function unlinkLocalUpload(filePath: string | null | undefined) {
 export async function deleteOrderAndAssets(orderId: number): Promise<boolean> {
   const order = await queryOne<{
     id: number;
-    client_user_id: number;
+    client_user_id: number | null;
     initial_photo_path: string | null;
     consent_signature_path: string | null;
   }>(
@@ -548,15 +624,17 @@ export async function deleteOrderAndAssets(orderId: number): Promise<boolean> {
 
   await execute(`DELETE FROM orders WHERE id = ?`, [orderId]);
 
-  const remainingOrders = await queryOne<{ c: number | string }>(
-    `SELECT COUNT(*) as c FROM orders WHERE client_user_id = ?`,
-    [order.client_user_id]
-  );
+  if (order.client_user_id !== null) {
+    const remainingOrders = await queryOne<{ c: number | string }>(
+      `SELECT COUNT(*) as c FROM orders WHERE client_user_id = ?`,
+      [order.client_user_id]
+    );
 
-  if (Number(remainingOrders?.c ?? 0) === 0) {
-    await execute(`DELETE FROM users WHERE id = ? AND role = 'CLIENT'`, [
-      order.client_user_id,
-    ]);
+    if (Number(remainingOrders?.c ?? 0) === 0) {
+      await execute(`DELETE FROM users WHERE id = ? AND role = 'CLIENT'`, [
+        order.client_user_id,
+      ]);
+    }
   }
 
   await deleteFileFromDb(order.initial_photo_path);
@@ -570,6 +648,50 @@ export async function deleteOrderAndAssets(orderId: number): Promise<boolean> {
   }
 
   return true;
+}
+
+/**
+ * Elimina un usuario cliente manteniendo intacto el historial de sus órdenes y certificados.
+ */
+export async function deleteUserAccount(
+  userId: number,
+  currentAdminId: number
+): Promise<{ ok: boolean; error?: string }> {
+  if (userId === currentAdminId) {
+    return {
+      ok: false,
+      error: 'No puedes eliminar tu propia cuenta de administrador activa.',
+    };
+  }
+
+  const user = await queryOne<{ id: number; role: UserRole }>(
+    `SELECT id, role FROM users WHERE id = ?`,
+    [userId]
+  );
+  if (!user) {
+    return { ok: false, error: 'Usuario no encontrado.' };
+  }
+
+  if (user.role === 'TECHNICIAN') {
+    const techCount = await queryOne<{ c: number | string }>(
+      `SELECT COUNT(*) as c FROM users WHERE role = 'TECHNICIAN'`
+    );
+    if (Number(techCount?.c ?? 0) <= 1) {
+      return {
+        ok: false,
+        error: 'No se puede eliminar la única cuenta de administrador técnico.',
+      };
+    }
+  }
+
+  // Unlink orders cleanly while preserving all order records, logs, photos, and certificates
+  await execute(
+    `UPDATE orders SET client_user_id = NULL, client_temp_password = NULL WHERE client_user_id = ?`,
+    [userId]
+  );
+  await execute(`DELETE FROM users WHERE id = ?`, [userId]);
+
+  return { ok: true };
 }
 
 /**

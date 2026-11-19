@@ -283,7 +283,11 @@ export async function generateOrderPdf(
     color: COLOR_SLATE,
   });
   ly -= 14;
-  page.drawText(sanitizeText(`Usuario portal: ${order.client_username}`), {
+  page.drawText(
+    sanitizeText(
+      `Usuario portal: ${order.client_username || 'Usuario eliminado'}`
+    ),
+    {
     x: MARGIN + 12,
     y: ly,
     size: 8.5,

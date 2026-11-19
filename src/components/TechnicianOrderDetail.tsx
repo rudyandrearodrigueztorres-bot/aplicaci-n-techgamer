@@ -26,6 +26,7 @@ import {
   Wrench,
   Trash2,
   Download,
+  UserX,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusStepper from './StatusStepper';
@@ -56,6 +57,7 @@ export default function TechnicianOrderDetail({
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   // Status & Certificate state
   const [savingStatus, setSavingStatus] = useState(false);
@@ -220,6 +222,27 @@ export default function TechnicianOrderDetail({
       }
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleDeleteClientUser = async () => {
+    if (!order || !order.client_user_id) return;
+    const confirmed = window.confirm(
+      `¿Seguro que deseas eliminar la cuenta de usuario "@${order.client_username}"?\n\nEl cliente perderá acceso al portal, pero el historial de esta orden y su certificado PDF se conservarán intactos.`
+    );
+    if (!confirmed) return;
+
+    setDeletingUser(true);
+    try {
+      const res = await fetch(`/api/users/${order.client_user_id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        await fetchOrder();
+        showToast('Usuario cliente eliminado. Los datos de la orden se mantienen.');
+      }
+    } finally {
+      setDeletingUser(false);
     }
   };
 
@@ -738,42 +761,65 @@ export default function TechnicianOrderDetail({
                   )}
                 </div>
 
-                <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70 space-y-1 text-xs">
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-[#2563EB]" />
-                    Acceso del cliente al portal
-                  </div>
-                  <div className="font-mono text-slate-700">
-                    Usuario: <strong>{order.client_username}</strong>
-                    {order.client_temp_password && (
-                      <>
-                        {' '}
-                        · Clave: <strong>{order.client_temp_password}</strong>
-                      </>
+                <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-[#2563EB]" />
+                      Acceso del cliente al portal
+                    </div>
+                    {order.client_user_id && order.client_username && (
+                      <button
+                        type="button"
+                        onClick={handleDeleteClientUser}
+                        disabled={deletingUser}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition"
+                      >
+                        <UserX className="w-3 h-3" />
+                        Eliminar usuario
+                      </button>
                     )}
                   </div>
-                  <div className="text-[11px] pt-1">
-                    {order.status === 'ENTREGADO' && order.delivered_at ? (
-                      isClientAccessExpired(order) ? (
-                        <span className="font-semibold text-red-600">
-                          Acceso expirado (pasaron más de 2 días desde la entrega).
-                        </span>
-                      ) : (
-                        <span className="font-semibold text-amber-700">
-                          Acceso activo hasta:{' '}
-                          {formatDateTime(
-                            calculateClientAccessExpiresAt(order.delivered_at)
-                          )}{' '}
-                          (2 días tras entrega)
-                        </span>
-                      )
-                    ) : (
-                      <span className="text-emerald-700 font-medium">
-                        Acceso activo (permanece vigente durante todo el servicio y
-                        2 días después de marcarse como Entregado).
-                      </span>
-                    )}
-                  </div>
+
+                  {order.client_username ? (
+                    <>
+                      <div className="font-mono text-slate-700">
+                        Usuario: <strong>{order.client_username}</strong>
+                        {order.client_temp_password && (
+                          <>
+                            {' '}
+                            · Clave: <strong>{order.client_temp_password}</strong>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-[11px] pt-0.5">
+                        {order.status === 'ENTREGADO' && order.delivered_at ? (
+                          isClientAccessExpired(order) ? (
+                            <span className="font-semibold text-red-600">
+                              Acceso expirado (pasaron más de 2 días desde la entrega).
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-amber-700">
+                              Acceso activo hasta:{' '}
+                              {formatDateTime(
+                                calculateClientAccessExpiresAt(order.delivered_at)
+                              )}{' '}
+                              (2 días tras entrega)
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-emerald-700 font-medium">
+                            Acceso activo (permanece vigente durante todo el servicio y
+                            2 días después de marcarse como Entregado).
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-slate-500 font-medium">
+                      Usuario eliminado (sin acceso al portal; la orden y su
+                      certificado permanecen conservados).
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
