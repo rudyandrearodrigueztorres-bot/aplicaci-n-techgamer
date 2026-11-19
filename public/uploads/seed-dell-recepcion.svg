@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="500" fill="url(#bg)"/>
+  <g opacity="0.08" stroke="#FFFFFF" stroke-width="1">
+    <line x1="0" y1="100" x2="800" y2="100"/>
+    <line x1="0" y1="200" x2="800" y2="200"/>
+    <line x1="0" y1="300" x2="800" y2="300"/>
+    <line x1="0" y1="400" x2="800" y2="400"/>
+    <line x1="200" y1="0" x2="200" y2="500"/>
+    <line x1="400" y1="0" x2="400" y2="500"/>
+    <line x1="600" y1="0" x2="600" y2="500"/>
+  </g>
+  <rect x="36" y="28" width="210" height="32" rx="16" fill="#2563EB"/>
+  <text x="141" y="49" text-anchor="middle" fill="#FFFFFF" font-size="13" font-weight="700" font-family="system-ui, sans-serif">RECEPCIÓN INICIAL</text>
+  <text x="764" y="48" text-anchor="end" fill="#94A3B8" font-size="13" font-family="monospace">TechCare Lab · Evidencia</text>
+  <rect x="210" y="95" width="380" height="230" rx="14" fill="#1E293B" stroke="#475569" stroke-width="5"/>
+         <rect x="228" y="113" width="344" height="194" rx="6" fill="#0F172A"/>
+         <rect x="248" y="135" width="150" height="12" rx="4" fill="#2563EB" opacity="0.9"/>
+         <rect x="248" y="160" width="290" height="8" rx="3" fill="#334155"/>
+         <rect x="248" y="178" width="240" height="8" rx="3" fill="#334155"/>
+         <rect x="248" y="210" width="110" height="72" rx="6" fill="#1E293B" stroke="#2563EB" stroke-width="2"/>
+         <rect x="372" y="210" width="170" height="72" rx="6" fill="#1E293B" stroke="#334155" stroke-width="2"/>
+         <path d="M170 330 H630 L610 356 H190 Z" fill="#64748B"/>
+         <rect x="355" y="334" width="90" height="6" rx="3" fill="#334155"/>
+  <text x="44" y="380" fill="#FFFFFF" font-size="22" font-weight="700" font-family="system-ui, sans-serif">Recepción · Dell XPS 15 9530</text>
+  <text x="44" y="400" fill="#CBD5E1" font-size="14" font-family="system-ui, sans-serif">Batería degradada al 32% y bisagra izquierda con holgura mecánica</text>
+  <rect x="44" y="410" width="224" height="44" rx="8" fill="rgba(15,23,42,0.75)" stroke="rgba(148,163,184,0.28)"/>
+         <text x="156" y="437" text-anchor="middle" fill="#E2E8F0" font-size="13" font-family="system-ui, sans-serif">Salud batería: 32%</text>
+<rect x="286" y="410" width="224" height="44" rx="8" fill="rgba(15,23,42,0.75)" stroke="rgba(148,163,184,0.28)"/>
+         <text x="398" y="437" text-anchor="middle" fill="#E2E8F0" font-size="13" font-family="system-ui, sans-serif">S/N: 7H9K2X3</text>
+<rect x="528" y="410" width="224" height="44" rx="8" fill="rgba(15,23,42,0.75)" stroke="rgba(148,163,184,0.28)"/>
+         <text x="640" y="437" text-anchor="middle" fill="#E2E8F0" font-size="13" font-family="system-ui, sans-serif">Cargador USB-C: Sí</text>
+</svg>

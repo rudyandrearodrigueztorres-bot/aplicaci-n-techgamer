@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Local SQLite database (auto-created & seeded on startup / npm run seed)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Dynamic user uploads (keep seed assets & directory)
+public/uploads/*
+!public/uploads/.gitkeep
+!public/uploads/seed-*.svg
+
+# Misc
+.DS_Store
+*.pem
+npm-debug.log*
+.env*.local
+*.tsbuildinfo
+next-env.d.ts

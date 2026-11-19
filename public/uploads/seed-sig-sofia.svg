@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="140" viewBox="0 0 460 140">
+  <rect width="460" height="140" fill="#FFFFFF"/>
+  <path d="M 70 84 C 95 26, 140 94, 164 56 C 186 24, 206 90, 238 64 C 266 42, 294 86, 330 58 C 352 44, 376 74, 404 60" fill="none" stroke="#1E3A8A" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="28" y1="114" x2="432" y2="114" stroke="#CBD5E1" stroke-width="1.2" stroke-dasharray="4 4"/>
+  <text x="230" y="131" text-anchor="middle" fill="#64748B" font-size="11" font-family="system-ui, sans-serif">Firma digital verificada · Sofía Vargas Castillo</text>
+</svg>
