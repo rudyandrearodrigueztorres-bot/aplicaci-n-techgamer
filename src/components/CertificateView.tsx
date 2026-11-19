@@ -140,7 +140,7 @@ export default function CertificateView({
                 <div>
                   <span className="text-slate-500 block">Técnico Responsable</span>
                   <span className="font-semibold text-slate-900">
-                    {order.technician_name || 'Equipo Técnico TechCare Lab'}
+                    {order.technician_name || 'Técnico Miguel Gómez'}
                   </span>
                 </div>
               </div>
@@ -345,7 +345,7 @@ export default function CertificateView({
               <div className="text-[11px] text-slate-600 leading-snug">
                 Emitido por <strong>TechCare Lab</strong>
                 <br />
-                Responsable: {order.technician_name || 'Administrador Técnico'}
+                Responsable: {order.technician_name || 'Técnico Miguel Gómez'}
               </div>
             </div>
           </section>
