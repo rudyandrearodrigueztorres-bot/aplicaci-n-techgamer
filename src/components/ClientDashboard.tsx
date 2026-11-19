@@ -324,6 +324,24 @@ export default function ClientDashboard({
                     </div>
                   </div>
                 )}
+
+                {order.expires_at && (
+                  <div className="flex items-start gap-2.5 pt-2 border-t border-slate-200/70">
+                    <ShieldCheck className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="text-[11px] uppercase font-semibold text-slate-400">
+                        Conservación del registro (2 meses)
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Se eliminará automáticamente el{' '}
+                        <strong className="font-mono text-slate-800">
+                          {formatDateTime(order.expires_at)}
+                        </strong>
+                        . Recuerda guardar tu certificado PDF antes de esa fecha.
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">

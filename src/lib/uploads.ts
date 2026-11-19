@@ -64,3 +64,18 @@ export function saveBase64Signature(
   return `/uploads/${safeName}`;
 }
 
+export function deleteUploadedFile(filePath: string | null | undefined) {
+  if (!filePath || !filePath.startsWith('/uploads/')) return;
+  const safeName = path.basename(filePath);
+  for (const dir of [UPLOADS_DIR, PUBLIC_UPLOADS_DIR]) {
+    const fullPath = path.join(dir, safeName);
+    try {
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+      }
+    } catch {
+      // Ignore read-only paths on serverless deployments
+    }
+  }
+}
+

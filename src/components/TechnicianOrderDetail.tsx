@@ -749,6 +749,15 @@ export default function TechnicianOrderDetail({
                       <strong>{formatDateTime(order.received_at)}</strong>
                     </span>
                   </div>
+                  {order.expires_at && (
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Trash2 className="w-4 h-4 text-slate-400 shrink-0" />
+                      <span>
+                        Eliminación automática (2 meses):{' '}
+                        <strong>{formatDateTime(order.expires_at)}</strong>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3 rounded-xl bg-blue-50/60 border border-blue-200/70 space-y-1 text-xs">

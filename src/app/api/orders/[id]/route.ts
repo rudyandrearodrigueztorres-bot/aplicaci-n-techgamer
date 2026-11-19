@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOrderWithDetails, type DbOrder } from '@/db';
+import {
+  deleteOrderAndAssets,
+  getDb,
+  getOrderWithDetails,
+  purgeExpiredOrders,
+  type DbOrder,
+} from '@/db';
 import { getSession } from '@/lib/auth';
 import { getStatusInfo, type OrderStatus } from '@/lib/constants';
 import { seedDatabase } from '@/db/seed';
@@ -17,6 +23,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   seedDatabase(false);
+  purgeExpiredOrders();
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -176,28 +183,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const db = getDb();
-  const existing = db
-    .prepare(`SELECT id, client_user_id FROM orders WHERE id = ?`)
-    .get(orderId) as { id: number; client_user_id: number } | undefined;
-
-  if (!existing) {
-    return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
-  }
-
   try {
-    db.prepare(`DELETE FROM orders WHERE id = ?`).run(orderId);
-
-    const remainingOrders = db
-      .prepare(`SELECT COUNT(*) as c FROM orders WHERE client_user_id = ?`)
-      .get(existing.client_user_id) as { c: number };
-
-    if (Number(remainingOrders.c) === 0) {
-      db.prepare(`DELETE FROM users WHERE id = ? AND role = 'CLIENT'`).run(
-        existing.client_user_id
-      );
+    const deleted = deleteOrderAndAssets(orderId);
+    if (!deleted) {
+      return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
-
     return NextResponse.json({ deleted: true, id: orderId });
   } catch (error) {
     console.error('Delete order error:', error);

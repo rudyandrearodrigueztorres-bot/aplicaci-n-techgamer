@@ -4,16 +4,18 @@ import {
   generateNextOrderNumber,
   getDb,
   getOrderWithDetails,
+  purgeExpiredOrders,
   runInTransaction,
   type DbOrder,
 } from '@/db';
 import { getSession, hashPassword } from '@/lib/auth';
-import { CONSENT_VERSION } from '@/lib/constants';
+import { CONSENT_VERSION, calculateExpiresAt } from '@/lib/constants';
 import { saveBase64Signature, saveUploadedFile } from '@/lib/uploads';
 import { seedDatabase } from '@/db/seed';
 
 export async function GET(req: NextRequest) {
   seedDatabase(false);
+  purgeExpiredOrders();
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -192,6 +194,7 @@ export async function POST(req: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
+    const expiresAtIso = calculateExpiresAt(nowIso);
     const orderNumber = generateNextOrderNumber();
     const certHash = crypto.randomBytes(2).toString('hex').toUpperCase();
     const orderSeq = orderNumber.split('-').pop() || '0000';
@@ -224,8 +227,8 @@ export async function POST(req: NextRequest) {
             device_brand, device_model, device_serial, reported_issue, status,
             received_at, initial_photo_path,
             consent_accepted, consent_accepted_at, consent_method, consent_signature_path, consent_signer_name, consent_version,
-            technician_name, certificate_code, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EN_DIAGNOSTICO', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            technician_name, certificate_code, expires_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EN_DIAGNOSTICO', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           orderNumber,
@@ -248,6 +251,7 @@ export async function POST(req: NextRequest) {
           CONSENT_VERSION,
           session.fullName,
           certificateCode,
+          expiresAtIso,
           nowIso
         );
 

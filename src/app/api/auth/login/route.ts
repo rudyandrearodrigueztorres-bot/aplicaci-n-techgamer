@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, type DbUser } from '@/db';
+import { getDb, purgeExpiredOrders, type DbUser } from '@/db';
 import { setSessionCookie, verifyPassword } from '@/lib/auth';
 import { seedDatabase } from '@/db/seed';
 
 export async function POST(req: NextRequest) {
   try {
-    // Ensure seed exists if DB was freshly created
     seedDatabase(false);
+    purgeExpiredOrders();
 
     const body = await req.json();
     const username = String(body.username || '').trim().toLowerCase();

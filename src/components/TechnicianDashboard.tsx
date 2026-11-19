@@ -24,6 +24,7 @@ import StatusBadge from './StatusBadge';
 import {
   ORDER_STATUS_STEPS,
   formatDateShort,
+  getDaysRemaining,
   isCertificateAvailable,
   type ConsentMethod,
   type OrderStatus,
@@ -42,6 +43,7 @@ interface OrderListItem {
   reported_issue: string;
   status: OrderStatus;
   received_at: string;
+  expires_at: string;
   consent_accepted: number;
   consent_accepted_at: string | null;
   consent_method: ConsentMethod | null;
@@ -141,8 +143,8 @@ export default function TechnicianDashboard({
               Panel de Gestión del Taller
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Control de equipos recibidos, cumplimiento de consentimiento RGPD
-              y seguimiento técnico.
+              Control de equipos recibidos, cumplimiento RGPD y retención
+              automática de 2 meses por cada ingreso manual.
             </p>
           </div>
           <button
@@ -328,6 +330,14 @@ export default function TechnicianDashboard({
                             <Clock className="w-3 h-3" />
                             {formatDateShort(order.received_at)}
                           </div>
+                          {order.expires_at && (
+                            <div className="mt-0.5 text-[11px] text-slate-400">
+                              Auto-borrado en{' '}
+                              <strong className="text-slate-600">
+                                {getDaysRemaining(order.expires_at)} días
+                              </strong>
+                            </div>
+                          )}
                           <div className="mt-1 flex items-center gap-2.5 text-[11px] text-slate-400">
                             <span className="inline-flex items-center gap-1">
                               <MessageSquare className="w-3 h-3" />

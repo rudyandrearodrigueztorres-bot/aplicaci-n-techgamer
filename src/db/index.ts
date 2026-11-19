@@ -1,8 +1,14 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
-import type { ConsentMethod, OrderStatus, PhotoCategory } from '@/lib/constants';
+import {
+  calculateExpiresAt,
+  type ConsentMethod,
+  type OrderStatus,
+  type PhotoCategory,
+} from '@/lib/constants';
 import type { UserRole } from '@/lib/auth';
+import { deleteUploadedFile } from '@/lib/uploads';
 
 export interface DbUser {
   id: number;
@@ -43,6 +49,7 @@ export interface DbOrder {
   warranty_granted: string | null;
   technician_name: string | null;
   certificate_code: string;
+  expires_at: string;
   updated_at: string;
 }
 
@@ -127,6 +134,7 @@ function initSchema(db: DatabaseSync) {
       warranty_granted TEXT,
       technician_name TEXT,
       certificate_code TEXT UNIQUE NOT NULL,
+      expires_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
       FOREIGN KEY (client_user_id) REFERENCES users(id) ON DELETE RESTRICT
     );
@@ -159,6 +167,23 @@ function initSchema(db: DatabaseSync) {
     CREATE INDEX IF NOT EXISTS idx_order_logs_order_id ON order_logs(order_id);
     CREATE INDEX IF NOT EXISTS idx_order_photos_order_id ON order_photos(order_id);
   `);
+
+  // Safe migration if an existing database was created before expires_at existed
+  const cols = db
+    .prepare(`PRAGMA table_info(orders)`)
+    .all() as unknown as { name: string }[];
+  const hasExpiresAt = cols.some((c) => c.name === 'expires_at');
+  if (!hasExpiresAt) {
+    db.exec(`ALTER TABLE orders ADD COLUMN expires_at TEXT`);
+    const rows = db
+      .prepare(`SELECT id, received_at FROM orders WHERE expires_at IS NULL`)
+      .all() as unknown as { id: number; received_at: string }[];
+    const updateStmt = db.prepare(`UPDATE orders SET expires_at = ? WHERE id = ?`);
+    for (const row of rows) {
+      updateStmt.run(calculateExpiresAt(row.received_at), row.id);
+    }
+  }
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_orders_expires_at ON orders(expires_at);`);
 }
 
 export function getDb(): DatabaseSync {
@@ -258,4 +283,80 @@ export function generateNextOrderNumber(): string {
     if (!exists) return candidate;
     seq++;
   }
+}
+
+export function deleteOrderAndAssets(orderId: number): boolean {
+  const db = getDb();
+  const order = db
+    .prepare(
+      `SELECT id, client_user_id, initial_photo_path, consent_signature_path
+       FROM orders
+       WHERE id = ?`
+    )
+    .get(orderId) as
+    | {
+        id: number;
+        client_user_id: number;
+        initial_photo_path: string | null;
+        consent_signature_path: string | null;
+      }
+    | undefined;
+
+  if (!order) return false;
+
+  const photos = db
+    .prepare(`SELECT file_path FROM order_photos WHERE order_id = ?`)
+    .all(orderId) as unknown as { file_path: string }[];
+
+  runInTransaction(db, () => {
+    db.prepare(`DELETE FROM orders WHERE id = ?`).run(orderId);
+
+    const remainingOrders = db
+      .prepare(`SELECT COUNT(*) as c FROM orders WHERE client_user_id = ?`)
+      .get(order.client_user_id) as { c: number };
+
+    if (Number(remainingOrders.c) === 0) {
+      db.prepare(`DELETE FROM users WHERE id = ? AND role = 'CLIENT'`).run(
+        order.client_user_id
+      );
+    }
+  });
+
+  deleteUploadedFile(order.initial_photo_path);
+  deleteUploadedFile(order.consent_signature_path);
+  for (const p of photos) {
+    deleteUploadedFile(p.file_path);
+  }
+
+  return true;
+}
+
+/**
+ * Conserva los registros únicamente durante 2 meses a partir de cada ingreso manual.
+ * Solo actúa cuando existen órdenes registradas y elimina automáticamente cualquier
+ * orden cuyo plazo de 2 meses haya vencido (junto con sus logs, fotos, firma y cliente).
+ */
+export function purgeExpiredOrders(): number {
+  const db = getDb();
+  const nowIso = new Date().toISOString();
+
+  const expired = db
+    .prepare(
+      `SELECT id
+       FROM orders
+       WHERE expires_at IS NOT NULL AND expires_at <= ?`
+    )
+    .all(nowIso) as unknown as { id: number }[];
+
+  if (expired.length === 0) {
+    return 0;
+  }
+
+  let purged = 0;
+  for (const row of expired) {
+    if (deleteOrderAndAssets(Number(row.id))) {
+      purged++;
+    }
+  }
+  return purged;
 }
