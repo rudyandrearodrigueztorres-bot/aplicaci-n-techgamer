@@ -56,7 +56,7 @@ export const ORDER_STATUS_STEPS: StatusStep[] = [
     step: 5,
     label: 'Entregado',
     shortLabel: 'Entregado',
-    description: 'Equipo entregado al cliente con garantía activa y certificado digital emitido.',
+    description: 'Equipo entregado al cliente con certificado digital emitido.',
   },
 ];
 
@@ -115,7 +115,7 @@ export const CONSENT_SECTIONS = [
       'El cliente declara haber realizado una copia de seguridad previa de toda la información, archivos personales y licencias de software contenidos en las unidades de almacenamiento del equipo. El taller adoptará las medidas de diligencia estándar para preservar la integridad lógica, pero no se hace responsable de la pérdida parcial o total de datos derivada de fallos de hardware preexistentes, sectores dañados o reinstalaciones necesarias para el diagnóstico.',
   },
   {
-    title: '4. Registro Fotográfico de Evidencias y Garantía',
+    title: '4. Registro Fotográfico de Evidencias',
     content:
       'Se autoriza la captura de fotografías técnicas del estado físico exterior e interior del equipo como respaldo documental de recepción, intervención y verificación final, las cuales formarán parte del historial de la orden y del Certificado Digital emitido al concluir el servicio.',
   },

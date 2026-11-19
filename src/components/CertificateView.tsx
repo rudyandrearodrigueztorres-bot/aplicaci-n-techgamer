@@ -8,7 +8,6 @@ import {
   Cpu,
   ShieldCheck,
   CheckCircle2,
-  Award,
   Camera,
   FileCheck2,
   AlertTriangle,
@@ -101,8 +100,8 @@ export default function CertificateView({
                   Certificado Digital de Diagnóstico y Reparación
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
-                  Documento oficial de trazabilidad técnica, evidencias y
-                  garantía de intervención
+                  Documento oficial de trazabilidad técnica y evidencias de
+                  intervención
                 </p>
               </div>
             </div>
@@ -210,21 +209,6 @@ export default function CertificateView({
                     {order.solution_applied ||
                       'Pendiente de completar por el técnico responsable.'}
                   </p>
-                </div>
-              </div>
-
-              <div className="rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-4 flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#10B981] text-white flex items-center justify-center shrink-0">
-                  <Award className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-800">
-                    Garantía Otorgada por el Taller
-                  </div>
-                  <div className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
-                    {order.warranty_granted ||
-                      'Garantía estándar de 3 meses en mano de obra'}
-                  </div>
                 </div>
               </div>
             </div>

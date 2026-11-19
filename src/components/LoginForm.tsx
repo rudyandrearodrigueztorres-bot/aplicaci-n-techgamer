@@ -111,7 +111,7 @@ export default function LoginForm() {
                     Certificado Digital Imprimible (PDF)
                   </div>
                   <div className="text-xs text-blue-100/90 mt-0.5">
-                    Diagnóstico final, solución, garantía, galería de evidencias
+                    Diagnóstico final, solución aplicada, galería de evidencias
                     y sello de verificación.
                   </div>
                 </div>

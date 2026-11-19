@@ -99,11 +99,6 @@ export async function PATCH(
         ? String(body.solution_applied).trim() || null
         : existing.solution_applied;
 
-    const warrantyGranted =
-      body.warranty_granted !== undefined
-        ? String(body.warranty_granted).trim() || null
-        : existing.warranty_granted;
-
     let completedAt = existing.completed_at;
     let deliveredAt = existing.delivered_at;
 
@@ -122,7 +117,6 @@ export async function PATCH(
        SET status = ?,
            final_diagnosis = ?,
            solution_applied = ?,
-           warranty_granted = ?,
            completed_at = ?,
            delivered_at = ?,
            technician_name = ?,
@@ -132,7 +126,6 @@ export async function PATCH(
       nextStatus,
       finalDiagnosis,
       solutionApplied,
-      warrantyGranted,
       completedAt,
       deliveredAt,
       session.fullName,

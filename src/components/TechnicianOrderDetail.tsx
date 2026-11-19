@@ -40,12 +40,6 @@ import {
   type PhotoCategory,
 } from '@/lib/constants';
 
-const WARRANTY_PRESETS = [
-  '3 meses en mano de obra y repuesto',
-  '6 meses en repuesto y mano de obra especializada',
-  '12 meses en componente sustituido y soporte técnico',
-];
-
 export default function TechnicianOrderDetail({
   orderId,
   technicianName,
@@ -64,7 +58,6 @@ export default function TechnicianOrderDetail({
   const [savingStatus, setSavingStatus] = useState(false);
   const [finalDiagnosis, setFinalDiagnosis] = useState('');
   const [solutionApplied, setSolutionApplied] = useState('');
-  const [warrantyGranted, setWarrantyGranted] = useState('');
   const [savingCert, setSavingCert] = useState(false);
 
   // Bitácora + multi-photo upload
@@ -100,7 +93,6 @@ export default function TechnicianOrderDetail({
       setOrder(data);
       setFinalDiagnosis(data.final_diagnosis || '');
       setSolutionApplied(data.solution_applied || '');
-      setWarrantyGranted(data.warranty_granted || '');
     } catch {
       setError('Error de red al obtener los detalles de la orden.');
     } finally {
@@ -141,7 +133,6 @@ export default function TechnicianOrderDetail({
         body: JSON.stringify({
           final_diagnosis: finalDiagnosis,
           solution_applied: solutionApplied,
-          warranty_granted: warrantyGranted,
         }),
       });
       if (res.ok) {
@@ -633,31 +624,6 @@ export default function TechnicianOrderDetail({
                     placeholder="Detalle de piezas sustituidas, mantenimiento y tests de estabilidad..."
                     className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 outline-none"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Garantía otorgada
-                  </label>
-                  <input
-                    type="text"
-                    value={warrantyGranted}
-                    onChange={(e) => setWarrantyGranted(e.target.value)}
-                    placeholder="Ej. 6 meses en repuesto y mano de obra"
-                    className="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 outline-none"
-                  />
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {WARRANTY_PRESETS.map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setWarrantyGranted(preset)}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-[#2563EB] transition"
-                      >
-                        {preset.split(' ').slice(0, 2).join(' ')}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 pt-1">

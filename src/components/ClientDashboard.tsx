@@ -256,7 +256,7 @@ export default function ClientDashboard({
           <StatusStepper currentStatus={order.status} />
 
           {certAvailable && (order.final_diagnosis || order.solution_applied) && (
-            <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-4 sm:p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-4 sm:p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5" />
@@ -273,15 +273,6 @@ export default function ClientDashboard({
                 </div>
                 <p className="text-xs sm:text-sm text-slate-800 mt-1 leading-relaxed">
                   {order.solution_applied || 'Intervención finalizada con éxito.'}
-                </p>
-              </div>
-              <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Garantía Otorgada
-                </div>
-                <p className="text-xs sm:text-sm font-semibold text-emerald-900 mt-1">
-                  {order.warranty_granted || 'Consultar en certificado oficial'}
                 </p>
               </div>
             </div>
