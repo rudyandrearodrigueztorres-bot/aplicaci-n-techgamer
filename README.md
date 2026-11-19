@@ -1,6 +1,6 @@
 # TechCare Lab — Gestión de Taller de Diagnóstico y Reparación de Ordenadores
 
-Aplicación web full-stack construida con **Next.js 15 (App Router)**, **Tailwind CSS**, **Lucide React** y **SQLite (`better-sqlite3`)** para la gestión integral de un taller de reparación de ordenadores, con seguimiento en tiempo real, cumplimiento de protección de datos (RGPD) con firma digital y emisión de certificados digitales imprimibles en PDF.
+Aplicación web full-stack construida con **Next.js 15 (App Router)**, **Tailwind CSS**, **Lucide React** y **SQLite (`node:sqlite`)** para la gestión integral de un taller de reparación de ordenadores, con seguimiento en tiempo real, cumplimiento de protección de datos (RGPD) con firma digital y emisión de certificados digitales imprimibles en PDF.
 
 ## Funcionalidades principales
 
@@ -19,13 +19,3 @@ npm run start
 ```
 
 Abre [http://localhost:3000](http://localhost:3000).
-
-## Credenciales de prueba
-
-| Rol | Usuario | Contraseña |
-| --- | --- | --- |
-| Técnico (Admin) | `tecnico` | `admin123` |
-| Cliente (Listo + Certificado PDF) | `carlos.mendez` | `cliente123` |
-| Cliente (Consentimiento pendiente 1er acceso) | `laura.gomez` | `cliente123` |
-| Cliente (En diagnóstico) | `david.ruiz` | `cliente123` |
-
