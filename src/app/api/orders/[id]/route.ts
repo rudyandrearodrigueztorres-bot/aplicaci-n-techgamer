@@ -158,3 +158,53 @@ export async function PATCH(
   }
 }
 
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const session = await getSession();
+  if (!session || session.role !== 'TECHNICIAN') {
+    return NextResponse.json(
+      { error: 'Acceso restringido al rol Técnico' },
+      { status: 403 }
+    );
+  }
+
+  const { id } = await context.params;
+  const orderId = Number(id);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
+  }
+
+  const db = getDb();
+  const existing = db
+    .prepare(`SELECT id, client_user_id FROM orders WHERE id = ?`)
+    .get(orderId) as { id: number; client_user_id: number } | undefined;
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
+  }
+
+  try {
+    db.prepare(`DELETE FROM orders WHERE id = ?`).run(orderId);
+
+    const remainingOrders = db
+      .prepare(`SELECT COUNT(*) as c FROM orders WHERE client_user_id = ?`)
+      .get(existing.client_user_id) as { c: number };
+
+    if (Number(remainingOrders.c) === 0) {
+      db.prepare(`DELETE FROM users WHERE id = ? AND role = 'CLIENT'`).run(
+        existing.client_user_id
+      );
+    }
+
+    return NextResponse.json({ deleted: true, id: orderId });
+  } catch (error) {
+    console.error('Delete order error:', error);
+    return NextResponse.json(
+      { error: 'Error al eliminar la orden.' },
+      { status: 500 }
+    );
+  }
+}
+

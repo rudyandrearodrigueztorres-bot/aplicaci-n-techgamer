@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Camera,
   MessageSquare,
+  Trash2,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusBadge from './StatusBadge';
@@ -57,6 +58,26 @@ export default function TechnicianDashboard({
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  const handleDeleteOrder = async (order: OrderListItem) => {
+    const confirmed = window.confirm(
+      `¿Seguro que deseas eliminar la orden ${order.order_number} (${order.client_name})? Esta acción eliminará también su bitácora y acceso de cliente.`
+    );
+    if (!confirmed) return;
+
+    setDeletingId(order.id);
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setOrders((prev) => prev.filter((o) => o.id !== order.id));
+      }
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const fetchOrders = useCallback(async (q: string, st: string) => {
     setLoading(true);
@@ -391,6 +412,15 @@ export default function TechnicianDashboard({
                               Gestionar
                               <ArrowRight className="w-3.5 h-3.5" />
                             </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteOrder(order)}
+                              disabled={deletingId === order.id}
+                              title="Eliminar orden"
+                              className="inline-flex items-center justify-center p-1.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 border border-slate-200 hover:border-red-200 disabled:opacity-50 transition"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </td>
                       </tr>

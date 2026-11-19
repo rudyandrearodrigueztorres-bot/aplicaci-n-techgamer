@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Laptop,
@@ -23,6 +24,7 @@ import {
   KeyRound,
   ZoomIn,
   Wrench,
+  Trash2,
 } from 'lucide-react';
 import AppHeader from './AppHeader';
 import StatusStepper from './StatusStepper';
@@ -51,10 +53,12 @@ export default function TechnicianOrderDetail({
   orderId: number;
   technicianName: string;
 }) {
+  const router = useRouter();
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Status & Certificate state
   const [savingStatus, setSavingStatus] = useState(false);
@@ -204,6 +208,27 @@ export default function TechnicianOrderDetail({
     }
   };
 
+  const handleDeleteOrder = async () => {
+    if (!order) return;
+    const confirmed = window.confirm(
+      `¿Seguro que deseas eliminar la orden ${order.order_number} (${order.client_name})? Esta acción no se puede deshacer.`
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/orders/${order.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        router.push('/tecnico');
+        router.refresh();
+      }
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F8FAFC]">
@@ -252,17 +277,29 @@ export default function TechnicianOrderDetail({
         role="TECHNICIAN"
         homeHref="/tecnico"
         rightSlot={
-          <Link
-            href={`/certificado/${order.id}`}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
-              certAvailable
-                ? 'bg-[#10B981] text-white hover:bg-emerald-600 shadow-sm shadow-emerald-600/20'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <FileBadge2 className="w-4 h-4" />
-            <span>Ver Certificado</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/certificado/${order.id}`}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold transition ${
+                certAvailable
+                  ? 'bg-[#10B981] text-white hover:bg-emerald-600 shadow-sm shadow-emerald-600/20'
+                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <FileBadge2 className="w-4 h-4" />
+              <span>Ver Certificado</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleDeleteOrder}
+              disabled={deleting}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-red-600 bg-red-50 border border-red-200 hover:bg-red-100 disabled:opacity-50 transition"
+              title="Eliminar orden"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Eliminar</span>
+            </button>
+          </div>
         }
       />
 
