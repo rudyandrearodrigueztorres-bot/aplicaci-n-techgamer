@@ -199,7 +199,9 @@ export default function NewOrderForm({
 
   const copyCredentials = async () => {
     if (!created) return;
-    const text = `TechCare Lab - Seguimiento de Reparación\nOrden: ${created.orderNumber}\nUsuario: ${created.username}\nContraseña temporal: ${created.password}\nAcceso: http://localhost:3000`;
+    const portalUrl =
+      typeof window !== 'undefined' ? window.location.origin : '';
+    const text = `TechCare Lab - Seguimiento de Reparación\nOrden: ${created.orderNumber}\nUsuario: ${created.username}\nContraseña temporal: ${created.password}\nAcceso: ${portalUrl}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
