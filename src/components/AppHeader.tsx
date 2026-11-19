@@ -42,7 +42,7 @@ export default function AppHeader({
           </div>
           <div>
             <div className="text-base font-bold text-slate-900 leading-none tracking-tight">
-              TechCare <span className="text-[#2563EB]">Lab</span>
+              Tech <span className="text-[#2563EB]">Gamer</span>
             </div>
             <div className="text-[11px] text-slate-500 font-medium mt-0.5">
               Diagnóstico y Reparación

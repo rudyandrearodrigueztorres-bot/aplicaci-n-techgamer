@@ -1,4 +1,4 @@
-# TechCare Lab — Gestión de Taller de Diagnóstico y Reparación de Ordenadores
+# Tech Gamer — Gestión de Taller de Diagnóstico y Reparación de Ordenadores
 
 Aplicación web full-stack construida con **Next.js 15 (App Router)**, **Tailwind CSS**, **Lucide React** y **SQLite (`node:sqlite`)** para la gestión integral de un taller de reparación de ordenadores, con seguimiento en tiempo real, cumplimiento de protección de datos (RGPD) con firma digital y emisión de certificados digitales imprimibles en PDF.
 

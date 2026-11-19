@@ -58,7 +58,7 @@ export default function LoginForm() {
             <div className="inline-flex items-center gap-2.5 bg-white/15 backdrop-blur px-3.5 py-2 rounded-2xl border border-white/20">
               <Cpu className="w-5 h-5 text-white" />
               <span className="font-bold tracking-tight text-sm">
-                TechCare Lab
+                Tech Gamer
               </span>
             </div>
 
@@ -124,7 +124,7 @@ export default function LoginForm() {
               <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
               Acceso seguro cifrado
             </span>
-            <span>TechCare Lab</span>
+            <span>Tech Gamer</span>
           </div>
         </div>
 

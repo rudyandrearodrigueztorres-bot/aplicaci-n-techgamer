@@ -94,7 +94,7 @@ export default function CertificateView({
               </div>
               <div>
                 <div className="text-xs font-bold uppercase tracking-[0.18em] text-[#2563EB]">
-                  TechCare Lab · Servicio Técnico Certificado
+                  Tech Gamer · Servicio Técnico Certificado
                 </div>
                 <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mt-0.5">
                   Certificado Digital de Diagnóstico y Reparación
@@ -327,7 +327,7 @@ export default function CertificateView({
                 </div>
               </div>
               <div className="text-[11px] text-slate-600 leading-snug">
-                Emitido por <strong>TechCare Lab</strong>
+                Emitido por <strong>Tech Gamer</strong>
                 <br />
                 Responsable: {order.technician_name || 'Técnico Miguel Gómez'}
               </div>

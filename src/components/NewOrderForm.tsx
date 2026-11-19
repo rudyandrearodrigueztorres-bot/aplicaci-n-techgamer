@@ -201,7 +201,7 @@ export default function NewOrderForm({
     if (!created) return;
     const portalUrl =
       typeof window !== 'undefined' ? window.location.origin : '';
-    const text = `TechCare Lab - Seguimiento de Reparación\nOrden: ${created.orderNumber}\nUsuario: ${created.username}\nContraseña temporal: ${created.password}\nAcceso: ${portalUrl}`;
+    const text = `Tech Gamer - Seguimiento de Reparación\nOrden: ${created.orderNumber}\nUsuario: ${created.username}\nContraseña temporal: ${created.password}\nAcceso: ${portalUrl}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);

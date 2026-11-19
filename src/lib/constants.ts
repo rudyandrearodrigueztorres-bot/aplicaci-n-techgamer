@@ -102,7 +102,7 @@ export const CONSENT_SECTIONS = [
   {
     title: '1. Política de Privacidad, Protección de Datos (RGPD) y Plazo de Conservación',
     content:
-      'TechCare Lab S.L. tratará los datos personales proporcionados (nombre, teléfono, correo electrónico e identificadores del equipo) exclusivamente para la gestión de la orden de reparación, comunicaciones sobre el estado del servicio y emisión del Certificado Digital de Diagnóstico y Reparación. Los registros, fotografías y firma digital se conservarán durante un plazo máximo de dos (2) meses desde la fecha de ingreso manual del equipo, tras el cual serán eliminados automáticamente del sistema. El titular podrá ejercer sus derechos de acceso, rectificación, supresión y limitación mediante solicitud escrita al taller.',
+      'Tech Gamer tratará los datos personales proporcionados (nombre, teléfono, correo electrónico e identificadores del equipo) exclusivamente para la gestión de la orden de reparación, comunicaciones sobre el estado del servicio y emisión del Certificado Digital de Diagnóstico y Reparación. Los registros, fotografías y firma digital se conservarán durante un plazo máximo de dos (2) meses desde la fecha de ingreso manual del equipo, tras el cual serán eliminados automáticamente del sistema. El titular podrá ejercer sus derechos de acceso, rectificación, supresión y limitación mediante solicitud escrita al taller.',
   },
   {
     title: '2. Autorización de Manipulación y Diagnóstico Técnico',
