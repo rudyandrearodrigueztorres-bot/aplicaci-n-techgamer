@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrderWithDetails, purgeExpiredOrders } from '@/db';
 import { seedDatabase } from '@/db/seed';
-import { getSession } from '@/lib/auth';
+import { clearSessionCookie, getSession } from '@/lib/auth';
+import { isClientAccessExpired } from '@/lib/constants';
 import { generateOrderPdf } from '@/lib/pdf';
 
 export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  seedDatabase(false);
-  purgeExpiredOrders();
+  await seedDatabase(false);
+  await purgeExpiredOrders();
 
   const session = await getSession();
   if (!session) {
@@ -22,16 +23,28 @@ export async function GET(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const order = getOrderWithDetails(orderId);
+  const order = await getOrderWithDetails(orderId);
   if (!order) {
     return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
   }
 
-  if (session.role === 'CLIENT' && order.client_user_id !== session.userId) {
-    return NextResponse.json(
-      { error: 'No tienes permiso para descargar este registro' },
-      { status: 403 }
-    );
+  if (session.role === 'CLIENT') {
+    if (order.client_user_id !== session.userId) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para descargar este registro' },
+        { status: 403 }
+      );
+    }
+    if (isClientAccessExpired(order)) {
+      await clearSessionCookie();
+      return NextResponse.json(
+        {
+          error:
+            'Tu acceso temporal expiró 2 días después de la entrega del equipo.',
+        },
+        { status: 403 }
+      );
+    }
   }
 
   try {

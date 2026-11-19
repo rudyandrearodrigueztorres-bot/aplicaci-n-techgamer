@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOrderWithDetails, type DbOrder } from '@/db';
+import {
+  execute,
+  getOrderWithDetails,
+  insertReturningId,
+  queryOne,
+  type DbOrder,
+} from '@/db';
 import { getSession } from '@/lib/auth';
 import type { PhotoCategory } from '@/lib/constants';
 import { saveUploadedFile } from '@/lib/uploads';
@@ -30,10 +36,9 @@ export async function POST(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const db = getDb();
-  const order = db
-    .prepare(`SELECT * FROM orders WHERE id = ?`)
-    .get(orderId) as DbOrder | undefined;
+  const order = await queryOne<DbOrder>(`SELECT * FROM orders WHERE id = ?`, [
+    orderId,
+  ]);
 
   if (!order) {
     return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
@@ -42,7 +47,9 @@ export async function POST(
   try {
     const formData = await req.formData();
     const comment = String(formData.get('comment') || '').trim();
-    const rawCategory = String(formData.get('category') || 'PROCESO') as PhotoCategory;
+    const rawCategory = String(
+      formData.get('category') || 'PROCESO'
+    ) as PhotoCategory;
     const category: PhotoCategory = VALID_CATEGORIES.includes(rawCategory)
       ? rawCategory
       : 'PROCESO';
@@ -66,38 +73,34 @@ export async function POST(
       comment ||
       `Se han añadido ${photoFiles.length} evidencia(s) fotográfica(s) del proceso técnico.`;
 
-    const logRes = db
-      .prepare(
-        `INSERT INTO order_logs (order_id, author_name, comment, status_at_time, created_at)
-         VALUES (?, ?, ?, ?, ?)`
-      )
-      .run(orderId, session.fullName, finalComment, order.status, nowIso);
-
-    const logId = Number(logRes.lastInsertRowid);
-
-    const insertPhotoStmt = db.prepare(
-      `INSERT INTO order_photos (order_id, log_id, file_path, caption, category, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`
+    const logId = await insertReturningId(
+      `INSERT INTO order_logs (order_id, author_name, comment, status_at_time, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [orderId, session.fullName, finalComment, order.status, nowIso]
     );
 
     for (const file of photoFiles) {
       const filePath = await saveUploadedFile(file, `orden-${orderId}`);
-      insertPhotoStmt.run(
-        orderId,
-        logId,
-        filePath,
-        caption || file.name.replace(/\.[^.]+$/, ''),
-        category,
-        nowIso
+      await execute(
+        `INSERT INTO order_photos (order_id, log_id, file_path, caption, category, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          orderId,
+          logId,
+          filePath,
+          caption || file.name.replace(/\.[^.]+$/, ''),
+          category,
+          nowIso,
+        ]
       );
     }
 
-    db.prepare(`UPDATE orders SET updated_at = ? WHERE id = ?`).run(
+    await execute(`UPDATE orders SET updated_at = ? WHERE id = ?`, [
       nowIso,
-      orderId
-    );
+      orderId,
+    ]);
 
-    const updated = getOrderWithDetails(orderId);
+    const updated = await getOrderWithDetails(orderId);
     return NextResponse.json({ order: updated }, { status: 201 });
   } catch (error) {
     console.error('Add log error:', error);
@@ -107,4 +110,3 @@ export async function POST(
     );
   }
 }
-

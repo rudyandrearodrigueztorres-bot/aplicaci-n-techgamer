@@ -14,7 +14,7 @@ export interface SessionPayload {
 const SESSION_COOKIE_NAME = 'techcare_session';
 const SESSION_SECRET =
   process.env.SESSION_SECRET || 'techcare-lab-local-secret-key-2026-x9p4q7';
-const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7; // 7 days
+const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 30; // 30 days (client access strictly checked against delivered_at + 2 days)
 
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');

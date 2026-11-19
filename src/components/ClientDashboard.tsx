@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Laptop,
   Clock,
@@ -27,6 +28,7 @@ import ImageLightbox from './ImageLightbox';
 import type { OrderWithDetails } from '@/db';
 import {
   PHOTO_CATEGORY_LABELS,
+  calculateClientAccessExpiresAt,
   formatDateTime,
   getStatusInfo,
   isCertificateAvailable,
@@ -37,6 +39,7 @@ export default function ClientDashboard({
 }: {
   clientName: string;
 }) {
+  const router = useRouter();
   const [order, setOrder] = useState<OrderWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -52,6 +55,10 @@ export default function ClientDashboard({
     if (!silent) setRefreshing(true);
     try {
       const res = await fetch('/api/orders', { cache: 'no-store' });
+      if (res.status === 403) {
+        router.push('/?expired=1');
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         const first: OrderWithDetails | undefined = json.orders?.[0];
@@ -62,7 +69,7 @@ export default function ClientDashboard({
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchMyOrder(false);
@@ -323,6 +330,26 @@ export default function ClientDashboard({
                       </div>
                       <div className="font-mono font-semibold text-emerald-700 text-xs sm:text-sm">
                         {formatDateTime(order.completed_at)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {order.status === 'ENTREGADO' && order.delivered_at && (
+                  <div className="flex items-start gap-2.5 pt-2 border-t border-slate-200/70">
+                    <Clock className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                    <div>
+                      <div className="text-[11px] uppercase font-semibold text-amber-700">
+                        Acceso al portal (2 días tras entrega)
+                      </div>
+                      <div className="text-xs text-slate-600">
+                        Tu acceso permanecerá activo hasta el{' '}
+                        <strong className="font-mono text-slate-800">
+                          {formatDateTime(
+                            calculateClientAccessExpiresAt(order.delivered_at)
+                          )}
+                        </strong>
+                        . Descarga tu Registro Digital PDF antes de esa fecha.
                       </div>
                     </div>
                   </div>

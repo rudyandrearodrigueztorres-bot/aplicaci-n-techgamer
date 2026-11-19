@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOrderWithDetails, type DbOrder } from '@/db';
-import { getSession } from '@/lib/auth';
-import { CONSENT_VERSION } from '@/lib/constants';
+import { execute, getOrderWithDetails, queryOne, type DbOrder } from '@/db';
+import { clearSessionCookie, getSession } from '@/lib/auth';
+import { CONSENT_VERSION, isClientAccessExpired } from '@/lib/constants';
 import { saveBase64Signature } from '@/lib/uploads';
 
 export async function POST(
@@ -19,20 +19,31 @@ export async function POST(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const db = getDb();
-  const order = db
-    .prepare(`SELECT * FROM orders WHERE id = ?`)
-    .get(orderId) as DbOrder | undefined;
+  const order = await queryOne<DbOrder>(`SELECT * FROM orders WHERE id = ?`, [
+    orderId,
+  ]);
 
   if (!order) {
     return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
   }
 
-  if (session.role === 'CLIENT' && order.client_user_id !== session.userId) {
-    return NextResponse.json(
-      { error: 'No tienes permiso para firmar esta orden.' },
-      { status: 403 }
-    );
+  if (session.role === 'CLIENT') {
+    if (order.client_user_id !== session.userId) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para firmar esta orden.' },
+        { status: 403 }
+      );
+    }
+    if (isClientAccessExpired(order)) {
+      await clearSessionCookie();
+      return NextResponse.json(
+        {
+          error:
+            'Tu acceso temporal expiró 2 días después de la entrega del equipo.',
+        },
+        { status: 403 }
+      );
+    }
   }
 
   try {
@@ -60,13 +71,16 @@ export async function POST(
 
     let signaturePath: string | null = order.consent_signature_path;
     if (signatureDataUrl && signatureDataUrl.startsWith('data:image/')) {
-      signaturePath = saveBase64Signature(signatureDataUrl, `firma-orden-${orderId}`);
+      signaturePath = await saveBase64Signature(
+        signatureDataUrl,
+        `firma-orden-${orderId}`
+      );
     }
 
     const nowIso = new Date().toISOString();
     const method = session.role === 'CLIENT' ? 'PORTAL_CLIENTE' : 'PRESENCIAL';
 
-    db.prepare(
+    await execute(
       `UPDATE orders
        SET consent_accepted = 1,
            consent_accepted_at = ?,
@@ -75,15 +89,16 @@ export async function POST(
            consent_signer_name = ?,
            consent_version = ?,
            updated_at = ?
-       WHERE id = ?`
-    ).run(
-      nowIso,
-      method,
-      signaturePath,
-      signerName,
-      CONSENT_VERSION,
-      nowIso,
-      orderId
+       WHERE id = ?`,
+      [
+        nowIso,
+        method,
+        signaturePath,
+        signerName,
+        CONSENT_VERSION,
+        nowIso,
+        orderId,
+      ]
     );
 
     const logComment =
@@ -91,12 +106,13 @@ export async function POST(
         ? `Consentimiento de Protección de Datos (RGPD) y Condiciones del Servicio aceptado digitalmente por ${signerName} desde el Portal del Cliente.`
         : `Consentimiento de Protección de Datos (RGPD) y Condiciones del Servicio firmado presencialmente por ${signerName}.`;
 
-    db.prepare(
+    await execute(
       `INSERT INTO order_logs (order_id, author_name, comment, status_at_time, created_at)
-       VALUES (?, ?, ?, ?, ?)`
-    ).run(orderId, signerName, logComment, order.status, nowIso);
+       VALUES (?, ?, ?, ?, ?)`,
+      [orderId, signerName, logComment, order.status, nowIso]
+    );
 
-    const updated = getOrderWithDetails(orderId);
+    const updated = await getOrderWithDetails(orderId);
     return NextResponse.json({ order: updated });
   } catch (error) {
     console.error('Consent acceptance error:', error);
@@ -106,4 +122,3 @@ export async function POST(
     );
   }
 }
-

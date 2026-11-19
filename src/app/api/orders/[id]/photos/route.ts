@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOrderWithDetails, type DbOrder } from '@/db';
+import { execute, getOrderWithDetails, queryOne, type DbOrder } from '@/db';
 import { getSession } from '@/lib/auth';
 import type { PhotoCategory } from '@/lib/constants';
 import { saveUploadedFile } from '@/lib/uploads';
@@ -30,10 +30,9 @@ export async function POST(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const db = getDb();
-  const order = db
-    .prepare(`SELECT * FROM orders WHERE id = ?`)
-    .get(orderId) as DbOrder | undefined;
+  const order = await queryOne<DbOrder>(`SELECT * FROM orders WHERE id = ?`, [
+    orderId,
+  ]);
 
   if (!order) {
     return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
@@ -41,7 +40,9 @@ export async function POST(
 
   try {
     const formData = await req.formData();
-    const rawCategory = String(formData.get('category') || 'PROCESO') as PhotoCategory;
+    const rawCategory = String(
+      formData.get('category') || 'PROCESO'
+    ) as PhotoCategory;
     const category: PhotoCategory = VALID_CATEGORIES.includes(rawCategory)
       ? rawCategory
       : 'PROCESO';
@@ -60,28 +61,28 @@ export async function POST(
     }
 
     const nowIso = new Date().toISOString();
-    const insertPhotoStmt = db.prepare(
-      `INSERT INTO order_photos (order_id, log_id, file_path, caption, category, created_at)
-       VALUES (?, NULL, ?, ?, ?, ?)`
-    );
 
     for (const file of photoFiles) {
       const filePath = await saveUploadedFile(file, `evidencia-${orderId}`);
-      insertPhotoStmt.run(
-        orderId,
-        filePath,
-        caption || file.name.replace(/\.[^.]+$/, ''),
-        category,
-        nowIso
+      await execute(
+        `INSERT INTO order_photos (order_id, log_id, file_path, caption, category, created_at)
+         VALUES (?, NULL, ?, ?, ?, ?)`,
+        [
+          orderId,
+          filePath,
+          caption || file.name.replace(/\.[^.]+$/, ''),
+          category,
+          nowIso,
+        ]
       );
     }
 
-    db.prepare(`UPDATE orders SET updated_at = ? WHERE id = ?`).run(
+    await execute(`UPDATE orders SET updated_at = ? WHERE id = ?`, [
       nowIso,
-      orderId
-    );
+      orderId,
+    ]);
 
-    const updated = getOrderWithDetails(orderId);
+    const updated = await getOrderWithDetails(orderId);
     return NextResponse.json({ order: updated }, { status: 201 });
   } catch (error) {
     console.error('Upload photos error:', error);
@@ -91,4 +92,3 @@ export async function POST(
     );
   }
 }
-

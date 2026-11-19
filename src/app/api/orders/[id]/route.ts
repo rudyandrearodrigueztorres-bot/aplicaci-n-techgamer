@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   deleteOrderAndAssets,
-  getDb,
+  execute,
   getOrderWithDetails,
   purgeExpiredOrders,
+  queryOne,
   type DbOrder,
 } from '@/db';
-import { getSession } from '@/lib/auth';
-import { getStatusInfo, type OrderStatus } from '@/lib/constants';
+import { clearSessionCookie, getSession } from '@/lib/auth';
+import {
+  getStatusInfo,
+  isClientAccessExpired,
+  type OrderStatus,
+} from '@/lib/constants';
 import { seedDatabase } from '@/db/seed';
 
 const VALID_STATUSES: OrderStatus[] = [
@@ -22,8 +27,8 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  seedDatabase(false);
-  purgeExpiredOrders();
+  await seedDatabase(false);
+  await purgeExpiredOrders();
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
@@ -35,16 +40,29 @@ export async function GET(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const order = getOrderWithDetails(orderId);
+  const order = await getOrderWithDetails(orderId);
   if (!order) {
     return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
   }
 
-  if (session.role === 'CLIENT' && order.client_user_id !== session.userId) {
-    return NextResponse.json(
-      { error: 'No tienes permiso para acceder a esta orden' },
-      { status: 403 }
-    );
+  if (session.role === 'CLIENT') {
+    if (order.client_user_id !== session.userId) {
+      return NextResponse.json(
+        { error: 'No tienes permiso para acceder a esta orden' },
+        { status: 403 }
+      );
+    }
+    if (isClientAccessExpired(order)) {
+      await clearSessionCookie();
+      return NextResponse.json(
+        {
+          error: 'ACCESS_EXPIRED',
+          message:
+            'Tu acceso temporal expiró 2 días después de la entrega del equipo.',
+        },
+        { status: 403 }
+      );
+    }
   }
 
   return NextResponse.json({ order });
@@ -68,10 +86,10 @@ export async function PATCH(
     return NextResponse.json({ error: 'ID de orden inválido' }, { status: 400 });
   }
 
-  const db = getDb();
-  const existing = db
-    .prepare(`SELECT * FROM orders WHERE id = ?`)
-    .get(orderId) as DbOrder | undefined;
+  const existing = await queryOne<DbOrder>(
+    `SELECT * FROM orders WHERE id = ?`,
+    [orderId]
+  );
 
   if (!existing) {
     return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
@@ -108,11 +126,17 @@ export async function PATCH(
     ) {
       completedAt = nowIso;
     }
-    if (nextStatus === 'ENTREGADO' && !deliveredAt) {
-      deliveredAt = nowIso;
+
+    if (nextStatus === 'ENTREGADO') {
+      if (!deliveredAt) {
+        deliveredAt = nowIso;
+      }
+    } else if (body.status !== undefined) {
+      // If moved back from ENTREGADO, clear delivered_at so client access stays active
+      deliveredAt = null;
     }
 
-    db.prepare(
+    await execute(
       `UPDATE orders
        SET status = ?,
            final_diagnosis = ?,
@@ -121,33 +145,35 @@ export async function PATCH(
            delivered_at = ?,
            technician_name = ?,
            updated_at = ?
-       WHERE id = ?`
-    ).run(
-      nextStatus,
-      finalDiagnosis,
-      solutionApplied,
-      completedAt,
-      deliveredAt,
-      session.fullName,
-      nowIso,
-      orderId
+       WHERE id = ?`,
+      [
+        nextStatus,
+        finalDiagnosis,
+        solutionApplied,
+        completedAt,
+        deliveredAt,
+        session.fullName,
+        nowIso,
+        orderId,
+      ]
     );
 
     if (nextStatus !== existing.status) {
       const statusLabel = getStatusInfo(nextStatus).label;
-      db.prepare(
+      await execute(
         `INSERT INTO order_logs (order_id, author_name, comment, status_at_time, created_at)
-         VALUES (?, ?, ?, ?, ?)`
-      ).run(
-        orderId,
-        session.fullName,
-        `Actualización de estado: el equipo ha pasado a fase "${statusLabel}".`,
-        nextStatus,
-        nowIso
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          orderId,
+          session.fullName,
+          `Actualización de estado: el equipo ha pasado a fase "${statusLabel}".`,
+          nextStatus,
+          nowIso,
+        ]
       );
     }
 
-    const updated = getOrderWithDetails(orderId);
+    const updated = await getOrderWithDetails(orderId);
     return NextResponse.json({ order: updated });
   } catch (error) {
     console.error('Update order error:', error);
@@ -177,7 +203,7 @@ export async function DELETE(
   }
 
   try {
-    const deleted = deleteOrderAndAssets(orderId);
+    const deleted = await deleteOrderAndAssets(orderId);
     if (!deleted) {
       return NextResponse.json({ error: 'Orden no encontrada' }, { status: 404 });
     }
@@ -190,4 +216,3 @@ export async function DELETE(
     );
   }
 }
-

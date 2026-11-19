@@ -35,8 +35,10 @@ import ImageLightbox from './ImageLightbox';
 import type { OrderWithDetails } from '@/db';
 import {
   PHOTO_CATEGORY_LABELS,
+  calculateClientAccessExpiresAt,
   formatDateTime,
   isCertificateAvailable,
+  isClientAccessExpired,
   type OrderStatus,
   type PhotoCategory,
 } from '@/lib/constants';
@@ -748,6 +750,28 @@ export default function TechnicianOrderDetail({
                         {' '}
                         · Clave: <strong>{order.client_temp_password}</strong>
                       </>
+                    )}
+                  </div>
+                  <div className="text-[11px] pt-1">
+                    {order.status === 'ENTREGADO' && order.delivered_at ? (
+                      isClientAccessExpired(order) ? (
+                        <span className="font-semibold text-red-600">
+                          Acceso expirado (pasaron más de 2 días desde la entrega).
+                        </span>
+                      ) : (
+                        <span className="font-semibold text-amber-700">
+                          Acceso activo hasta:{' '}
+                          {formatDateTime(
+                            calculateClientAccessExpiresAt(order.delivered_at)
+                          )}{' '}
+                          (2 días tras entrega)
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-emerald-700 font-medium">
+                        Acceso activo (permanece vigente durante todo el servicio y
+                        2 días después de marcarse como Entregado).
+                      </span>
                     )}
                   </div>
                 </div>

@@ -83,11 +83,35 @@ export const PHOTO_CATEGORY_LABELS: Record<PhotoCategory, string> = {
 
 export const CONSENT_VERSION = 'v2.1-RGPD-2026';
 export const RETENTION_MONTHS = 2;
+export const CLIENT_ACCESS_DAYS_AFTER_DELIVERY = 2;
 
 export function calculateExpiresAt(fromIso: string): string {
   const date = new Date(fromIso);
   date.setMonth(date.getMonth() + RETENTION_MONTHS);
   return date.toISOString();
+}
+
+export function calculateClientAccessExpiresAt(
+  deliveredAtIso: string | null | undefined
+): string | null {
+  if (!deliveredAtIso) return null;
+  const deliveredMs = new Date(deliveredAtIso).getTime();
+  if (Number.isNaN(deliveredMs)) return null;
+  return new Date(
+    deliveredMs + CLIENT_ACCESS_DAYS_AFTER_DELIVERY * 24 * 60 * 60 * 1000
+  ).toISOString();
+}
+
+export function isClientAccessExpired(order: {
+  status: OrderStatus;
+  delivered_at: string | null | undefined;
+}): boolean {
+  if (order.status !== 'ENTREGADO' || !order.delivered_at) {
+    return false;
+  }
+  const expiresAtIso = calculateClientAccessExpiresAt(order.delivered_at);
+  if (!expiresAtIso) return false;
+  return Date.now() > new Date(expiresAtIso).getTime();
 }
 
 export function getDaysRemaining(expiresAtIso: string | null | undefined): number | null {

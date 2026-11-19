@@ -17,13 +17,21 @@ import {
   Loader2,
 } from 'lucide-react';
 
-export default function LoginForm() {
+export default function LoginForm({
+  accessExpired = false,
+}: {
+  accessExpired?: boolean;
+}) {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    accessExpired
+      ? 'Tu acceso temporal expiró 2 días después de la entrega del equipo. Contacta con Tech Gamer si necesitas una copia de tu registro.'
+      : null
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

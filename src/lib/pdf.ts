@@ -8,7 +8,7 @@ import {
   type PDFImage,
   type PDFPage,
 } from 'pdf-lib';
-import type { OrderWithDetails } from '@/db';
+import { readFileFromDb, type OrderWithDetails } from '@/db';
 import {
   PHOTO_CATEGORY_LABELS,
   formatDateTime,
@@ -83,13 +83,21 @@ function wrapText(
   return lines;
 }
 
-function resolveUploadBytes(filePath: string | null | undefined): {
+async function resolveUploadBytes(
+  filePath: string | null | undefined
+): Promise<{
   bytes: Uint8Array;
   ext: string;
-} | null {
+} | null> {
   if (!filePath || !filePath.startsWith('/uploads/')) return null;
   const safeName = path.basename(filePath);
   const ext = path.extname(safeName).toLowerCase();
+
+  const stored = await readFileFromDb(safeName);
+  if (stored) {
+    return { bytes: new Uint8Array(stored.buffer), ext };
+  }
+
   for (const dir of [UPLOADS_DIR, PUBLIC_UPLOADS_DIR]) {
     const full = path.join(dir, safeName);
     if (fs.existsSync(full)) {
@@ -103,7 +111,7 @@ async function tryEmbedImage(
   pdfDoc: PDFDocument,
   filePath: string | null | undefined
 ): Promise<PDFImage | null> {
-  const resolved = resolveUploadBytes(filePath);
+  const resolved = await resolveUploadBytes(filePath);
   if (!resolved) return null;
   try {
     if (resolved.ext === '.png') {
@@ -759,3 +767,4 @@ export async function generateOrderPdf(
 
   return pdfDoc.save();
 }
+

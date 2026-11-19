@@ -1,47 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import {
+  execute,
   generateNextOrderNumber,
-  getDb,
   getOrderWithDetails,
+  insertReturningId,
   purgeExpiredOrders,
-  runInTransaction,
+  queryAll,
+  queryOne,
   type DbOrder,
 } from '@/db';
-import { getSession, hashPassword } from '@/lib/auth';
-import { CONSENT_VERSION, calculateExpiresAt } from '@/lib/constants';
+import { clearSessionCookie, getSession, hashPassword } from '@/lib/auth';
+import {
+  CONSENT_VERSION,
+  calculateExpiresAt,
+  isClientAccessExpired,
+} from '@/lib/constants';
 import { saveBase64Signature, saveUploadedFile } from '@/lib/uploads';
 import { seedDatabase } from '@/db/seed';
 
 export async function GET(req: NextRequest) {
-  seedDatabase(false);
-  purgeExpiredOrders();
+  await seedDatabase(false);
+  await purgeExpiredOrders();
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
   }
 
-  const db = getDb();
   const { searchParams } = new URL(req.url);
   const q = (searchParams.get('q') || '').trim().toLowerCase();
   const status = (searchParams.get('status') || '').trim();
 
   if (session.role === 'CLIENT') {
-    const orders = (
-      db
-        .prepare(
-          `SELECT o.*, u.username AS client_username
-           FROM orders o
-           JOIN users u ON u.id = o.client_user_id
-           WHERE o.client_user_id = ?
-           ORDER BY o.received_at DESC`
-        )
-        .all(session.userId) as unknown as (DbOrder & { client_username: string })[]
-    ).map((o) => ({ ...o }));
+    const orders = await queryAll<DbOrder & { client_username: string }>(
+      `SELECT o.*, u.username AS client_username
+       FROM orders o
+       JOIN users u ON u.id = o.client_user_id
+       WHERE o.client_user_id = ?
+       ORDER BY o.received_at DESC`,
+      [session.userId]
+    );
 
-    const detailed = orders
-      .map((o) => getOrderWithDetails(o.id))
-      .filter(Boolean);
+    const activeOrders = orders.filter((o) => !isClientAccessExpired(o));
+    if (orders.length > 0 && activeOrders.length === 0) {
+      await clearSessionCookie();
+      return NextResponse.json(
+        {
+          error: 'ACCESS_EXPIRED',
+          message:
+            'Tu acceso al portal expiró 2 días después de la entrega del equipo.',
+        },
+        { status: 403 }
+      );
+    }
+
+    const detailed = (
+      await Promise.all(activeOrders.map((o) => getOrderWithDetails(o.id)))
+    ).filter(Boolean);
 
     return NextResponse.json({ orders: detailed });
   }
@@ -65,24 +80,22 @@ export async function GET(req: NextRequest) {
 
   const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  const orders = (
-    db
-      .prepare(
-        `SELECT o.*, u.username AS client_username,
-                (SELECT COUNT(*) FROM order_logs l WHERE l.order_id = o.id) AS logs_count,
-                (SELECT COUNT(*) FROM order_photos p WHERE p.order_id = o.id) AS photos_count
-         FROM orders o
-         JOIN users u ON u.id = o.client_user_id
-         ${whereSql}
-         ORDER BY o.received_at DESC, o.id DESC`
-      )
-      .all(...params) as unknown as Record<string, unknown>[]
-  ).map((row) => ({ ...row }));
+  const orders = await queryAll<Record<string, unknown>>(
+    `SELECT o.*, u.username AS client_username,
+            (SELECT COUNT(*) FROM order_logs l WHERE l.order_id = o.id) AS logs_count,
+            (SELECT COUNT(*) FROM order_photos p WHERE p.order_id = o.id) AS photos_count
+     FROM orders o
+     JOIN users u ON u.id = o.client_user_id
+     ${whereSql}
+     ORDER BY o.received_at DESC, o.id DESC`,
+    params
+  );
 
   return NextResponse.json({ orders });
 }
 
 export async function POST(req: NextRequest) {
+  await seedDatabase(false);
   const session = await getSession();
   if (!session || session.role !== 'TECHNICIAN') {
     return NextResponse.json(
@@ -157,12 +170,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const db = getDb();
-
-    // Check username availability
-    const existingUser = db
-      .prepare(`SELECT id FROM users WHERE LOWER(username) = ?`)
-      .get(rawUsername);
+    const existingUser = await queryOne<{ id: number }>(
+      `SELECT id FROM users WHERE LOWER(username) = ?`,
+      [rawUsername]
+    );
 
     if (existingUser) {
       return NextResponse.json(
@@ -173,7 +184,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Save initial reception photo if provided
     let initialPhotoPath: string | null = null;
     if (
       initialPhotoEntry &&
@@ -187,89 +197,82 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Save presencial signature if provided
     let signaturePath: string | null = null;
     if (consentMode === 'PRESENCIAL' && consentAccepted && consentSignature) {
-      signaturePath = saveBase64Signature(consentSignature, 'firma-recepcion');
+      signaturePath = await saveBase64Signature(
+        consentSignature,
+        'firma-recepcion'
+      );
     }
 
     const nowIso = new Date().toISOString();
     const expiresAtIso = calculateExpiresAt(nowIso);
-    const orderNumber = generateNextOrderNumber();
+    const orderNumber = await generateNextOrderNumber();
     const certHash = crypto.randomBytes(2).toString('hex').toUpperCase();
     const orderSeq = orderNumber.split('-').pop() || '0000';
     const certificateCode = `CERT-TC${String(new Date().getFullYear()).slice(-2)}-${certHash}-${orderSeq}`;
 
-    const newOrderId = runInTransaction(db, () => {
-      const userRes = db
-        .prepare(
-          `INSERT INTO users (username, password_hash, role, full_name, email, phone, created_at)
-           VALUES (?, ?, 'CLIENT', ?, ?, ?, ?)`
-        )
-        .run(
-          rawUsername,
-          hashPassword(clientPassword),
-          clientName,
-          clientEmail,
-          clientPhone,
-          nowIso
-        );
+    const clientUserId = await insertReturningId(
+      `INSERT INTO users (username, password_hash, role, full_name, email, phone, created_at)
+       VALUES (?, ?, 'CLIENT', ?, ?, ?, ?)`,
+      [
+        rawUsername,
+        hashPassword(clientPassword),
+        clientName,
+        clientEmail,
+        clientPhone,
+        nowIso,
+      ]
+    );
 
-      const clientUserId = Number(userRes.lastInsertRowid);
+    const isPresencialSigned =
+      consentMode === 'PRESENCIAL' && consentAccepted && Boolean(signaturePath);
 
-      const isPresencialSigned =
-        consentMode === 'PRESENCIAL' && consentAccepted && Boolean(signaturePath);
+    const newOrderId = await insertReturningId(
+      `INSERT INTO orders (
+        order_number, client_user_id, client_name, client_phone, client_email, client_temp_password,
+        device_brand, device_model, device_serial, reported_issue, status,
+        received_at, initial_photo_path,
+        consent_accepted, consent_accepted_at, consent_method, consent_signature_path, consent_signer_name, consent_version,
+        technician_name, certificate_code, expires_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EN_DIAGNOSTICO', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        orderNumber,
+        clientUserId,
+        clientName,
+        clientPhone,
+        clientEmail,
+        clientPassword,
+        deviceBrand,
+        deviceModel,
+        deviceSerial,
+        reportedIssue,
+        nowIso,
+        initialPhotoPath,
+        isPresencialSigned ? 1 : 0,
+        isPresencialSigned ? nowIso : null,
+        isPresencialSigned ? 'PRESENCIAL' : null,
+        signaturePath,
+        isPresencialSigned ? clientName : null,
+        CONSENT_VERSION,
+        session.fullName,
+        certificateCode,
+        expiresAtIso,
+        nowIso,
+      ]
+    );
 
-      const orderRes = db
-        .prepare(
-          `INSERT INTO orders (
-            order_number, client_user_id, client_name, client_phone, client_email, client_temp_password,
-            device_brand, device_model, device_serial, reported_issue, status,
-            received_at, initial_photo_path,
-            consent_accepted, consent_accepted_at, consent_method, consent_signature_path, consent_signer_name, consent_version,
-            technician_name, certificate_code, expires_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EN_DIAGNOSTICO', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          orderNumber,
-          clientUserId,
-          clientName,
-          clientPhone,
-          clientEmail,
-          clientPassword,
-          deviceBrand,
-          deviceModel,
-          deviceSerial,
-          reportedIssue,
-          nowIso,
-          initialPhotoPath,
-          isPresencialSigned ? 1 : 0,
-          isPresencialSigned ? nowIso : null,
-          isPresencialSigned ? 'PRESENCIAL' : null,
-          signaturePath,
-          isPresencialSigned ? clientName : null,
-          CONSENT_VERSION,
-          session.fullName,
-          certificateCode,
-          expiresAtIso,
-          nowIso
-        );
+    const initialComment = isPresencialSigned
+      ? `Equipo ingresado en taller por ${clientName}. Consentimiento de Protección de Datos y Condiciones del Servicio firmado presencialmente en mostrador.`
+      : `Equipo ingresado en taller para ${clientName}. Aceptación de Protección de Datos y Condiciones del Servicio pendiente para el primer acceso del cliente al portal.`;
 
-      const orderId = Number(orderRes.lastInsertRowid);
+    await execute(
+      `INSERT INTO order_logs (order_id, author_name, comment, status_at_time, created_at)
+       VALUES (?, ?, ?, 'EN_DIAGNOSTICO', ?)`,
+      [newOrderId, session.fullName, initialComment, nowIso]
+    );
 
-      const initialComment = isPresencialSigned
-        ? `Equipo ingresado en taller por ${clientName}. Consentimiento de Protección de Datos y Condiciones del Servicio firmado presencialmente en mostrador.`
-        : `Equipo ingresado en taller para ${clientName}. Aceptación de Protección de Datos y Condiciones del Servicio pendiente para el primer acceso del cliente al portal.`;
-
-      db.prepare(
-        `INSERT INTO order_logs (order_id, author_name, comment, status_at_time, created_at)
-         VALUES (?, ?, ?, 'EN_DIAGNOSTICO', ?)`
-      ).run(orderId, session.fullName, initialComment, nowIso);
-
-      return orderId;
-    });
-
-    const createdOrder = getOrderWithDetails(newOrderId);
+    const createdOrder = await getOrderWithDetails(newOrderId);
 
     return NextResponse.json(
       {
@@ -289,4 +292,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

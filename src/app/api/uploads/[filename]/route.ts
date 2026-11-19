@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { readFileFromDb } from '@/db';
 import { PUBLIC_UPLOADS_DIR, UPLOADS_DIR } from '@/lib/uploads';
 
 const EXT_TO_MIME: Record<string, string> = {
@@ -18,6 +19,20 @@ export async function GET(
 ) {
   const { filename } = await context.params;
   const safeName = path.basename(filename);
+
+  // 1. Try persistent DB storage first (for Vercel + PostgreSQL / multi-container)
+  const stored = await readFileFromDb(safeName);
+  if (stored) {
+    return new NextResponse(new Uint8Array(stored.buffer), {
+      status: 200,
+      headers: {
+        'Content-Type': stored.mimeType,
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  }
+
+  // 2. Fall back to local filesystem (/public/uploads or /tmp/techcare-uploads)
   const runtimePath = path.join(UPLOADS_DIR, safeName);
   const publicPath = path.join(PUBLIC_UPLOADS_DIR, safeName);
   const fullPath = fs.existsSync(runtimePath) ? runtimePath : publicPath;
@@ -38,4 +53,3 @@ export async function GET(
     },
   });
 }
-

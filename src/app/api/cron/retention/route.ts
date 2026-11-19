@@ -11,8 +11,8 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  seedDatabase(false);
-  const purgedCount = purgeExpiredOrders();
+  await seedDatabase(false);
+  const purgedCount = await purgeExpiredOrders();
 
   return NextResponse.json({
     ok: true,
@@ -20,4 +20,3 @@ export async function GET(req: NextRequest) {
     executedAt: new Date().toISOString(),
   });
 }
-
