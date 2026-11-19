@@ -345,7 +345,7 @@ export default function CertificateView({
               <div className="text-[11px] text-slate-600 leading-snug">
                 Emitido por <strong>TechCare Lab</strong>
                 <br />
-                Responsable: {order.technician_name || 'Ing. Alejandro Morales'}
+                Responsable: {order.technician_name || 'Administrador Técnico'}
               </div>
             </div>
           </section>

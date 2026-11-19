@@ -8,15 +8,14 @@ node_modules/
 out/
 build/
 
-# Local SQLite database (auto-created & seeded on startup / npm run seed)
+# Local SQLite database (auto-created on startup)
 data/*.db
 data/*.db-shm
 data/*.db-wal
 
-# Dynamic user uploads (keep seed assets & directory)
+# Dynamic user uploads (keep directory)
 public/uploads/*
 !public/uploads/.gitkeep
-!public/uploads/seed-*.svg
 
 # Misc
 .DS_Store
@@ -25,4 +24,3 @@ npm-debug.log*
 .env*.local
 *.tsbuildinfo
 next-env.d.ts
-
